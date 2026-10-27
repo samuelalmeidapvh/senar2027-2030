@@ -1,0 +1,6 @@
+{
+  "name": "SENAR-RO | Planejamento Estratégico & BSC 3D",
+  "description": "Plataforma de Planejamento Estratégico e Balanced Scorecard (BSC) do SENAR-AR/RO: Cadeia de Valor, Gestão de KPIs, Planos de Ação por Unidade, CMS e Análise com Gemini AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

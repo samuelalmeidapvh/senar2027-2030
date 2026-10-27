@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SENAR-RO | Planejamento Estratégico & BSC 3D</title>
+    <meta name="description" content="Plataforma de Planejamento Estratégico e Balanced Scorecard (BSC) do SENAR-AR/RO: Cadeia de Valor, Gestão de KPIs, Planos de Ação por Unidade, CMS e Análise com Gemini AI." />
+    <meta property="og:title" content="SENAR-RO | Planejamento Estratégico & BSC 3D" />
+    <meta property="og:description" content="Plataforma de Planejamento Estratégico e Balanced Scorecard (BSC) do SENAR-AR/RO: Cadeia de Valor, Gestão de KPIs, Planos de Ação por Unidade, CMS e Análise com Gemini AI." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
+    <script>
+      // Gracefully prevent unhandled WebSocket rejection logs when HMR is disabled in cloud dev environments
+      window.addEventListener('unhandledrejection', function(event) {
+        if (event && event.reason && (
+          String(event.reason).includes('WebSocket') || 
+          event.reason?.message?.includes('WebSocket')
+        )) {
+          event.preventDefault();
+        }
+      });
+    </script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased font-sans selection:bg-[#008744]/20 selection:text-[#006837]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
