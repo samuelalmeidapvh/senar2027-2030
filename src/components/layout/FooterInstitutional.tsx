@@ -40,9 +40,9 @@ export const FooterInstitutional: React.FC<FooterInstitutionalProps> = ({ onOpen
             <ul className="space-y-2">
               <li><a href="#proposito" className="hover:text-emerald-400 transition-colors">Propósito & Valores</a></li>
               <li><a href="#mapa-bsc" className="hover:text-emerald-400 transition-colors">Mapa Estratégico BSC</a></li>
+              <li><a href="#planos-unidades" className="hover:text-emerald-400 transition-colors">Planos de Ação 5W2H</a></li>
               <li><a href="#cadeia-valor" className="hover:text-emerald-400 transition-colors">Cadeia de Valor & Processos</a></li>
               <li><a href="#kpis-dashboard" className="hover:text-emerald-400 transition-colors">Indicadores de Desempenho</a></li>
-              <li><a href="#planos-unidades" className="hover:text-emerald-400 transition-colors">Planos de Ação 5W2H</a></li>
             </ul>
           </div>
 

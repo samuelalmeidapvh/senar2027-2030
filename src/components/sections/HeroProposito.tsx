@@ -33,14 +33,8 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
           
           <div className="lg:col-span-7 flex flex-col justify-between">
             <div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100/90 text-[#006837] text-xs font-bold tracking-wide">
-                  <span>JUNTOS, FORTALECENDO O PRODUTOR RURAL DE RONDÔNIA</span>
-                </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 text-xs font-medium tracking-wide">
-                  <span className="font-mono text-[10px] uppercase font-bold text-emerald-700">Lema:</span>
-                  <span className="font-bold text-emerald-950">“Conhecimento que transforma, campo que prospera.”</span>
-                </div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100/90 text-[#006837] text-xs font-bold mb-3 tracking-wide">
+                <span>JUNTOS, FORTALECENDO O PRODUTOR RURAL DE RONDÔNIA</span>
               </div>
 
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.15] max-w-2xl text-balance">
@@ -58,44 +52,64 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
                 </p>
               </div>
 
+              {/* Strategic Pillars: Visão, Missão e Valores (Inseridos logo após o Propósito Institucional) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mt-3.5">
+                
+                <div className="bg-slate-50/90 p-4 rounded-xl border border-slate-200 hover:border-emerald-300 transition-colors shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-[#006837] flex items-center justify-center mb-2">
+                    <Compass className="w-4 h-4 text-[#006837]" />
+                  </div>
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Visão Estratégica</h3>
+                  <p className="mt-1.5 text-xs text-slate-700 leading-relaxed font-medium">
+                    Alcançar a excelência na atuação rural, por meio da assistência, capacitação, formação e promoção social gerando resultados efetivos aos produtores.
+                  </p>
+                </div>
+
+                <div className="bg-slate-50/90 p-4 rounded-xl border border-slate-200 hover:border-emerald-300 transition-colors shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-[#006837] flex items-center justify-center mb-2">
+                    <Target className="w-4 h-4 text-[#006837]" />
+                  </div>
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Missão Institucional</h3>
+                  <p className="mt-1.5 text-xs text-slate-700 leading-relaxed">
+                    Transformar conhecimento em oportunidades para o meio rural, por meio da educação profissional, da assistência técnica, da inovação e do fortalecimento da gestão, gerando valor para as pessoas, as propriedades rurais e a sociedade.
+                  </p>
+                </div>
+
+                <div className="bg-slate-50/90 p-4 rounded-xl border border-slate-200 hover:border-emerald-300 transition-colors shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-[#006837] flex items-center justify-center mb-2">
+                    <Award className="w-4 h-4 text-[#006837]" />
+                  </div>
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Valores Centrais</h3>
+                  <p className="mt-1.5 text-xs text-slate-700 leading-relaxed">
+                    Excelência e Qualidade, Cooperação e Parceria, Compromisso com o Público Rural, Responsabilidade pelos Resultados e Valorização das Pessoas.
+                  </p>
+                </div>
+
+              </div>
+
+              {/* Lema do Planejamento 2027–2030 */}
+              <div className="mt-3.5 p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-emerald-50 via-emerald-100/50 to-teal-50/60 border border-emerald-300/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 group hover:border-emerald-400 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-[#006837] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Sparkles className="w-4.5 h-4.5 text-emerald-200" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-widest font-extrabold text-[#006837] block leading-tight">
+                      Lema do Planejamento 2027–2030
+                    </span>
+                    <p className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight leading-snug mt-0.5">
+                      “Conhecimento que transforma, campo que prospera.”
+                    </p>
+                  </div>
+                </div>
+                <div className="inline-flex items-center self-start sm:self-center px-2.5 py-1 rounded-md bg-white border border-emerald-200/90 text-[11px] font-mono font-bold text-emerald-800 shrink-0 shadow-2xs">
+                  Ciclo 2027–2030
+                </div>
+              </div>
+
               <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl">
                 O Planejamento Estratégico do <strong className="text-slate-800 font-semibold">SENAR-AR/RO</strong> consolida a atuação articulada com a FAPERON e os 52 Sindicatos dos Produtores Rurais, unindo Assistência Técnica e Gerencial (ATeG), Formação Profissional Rural (FPR) e Promoção Social (PS).
               </p>
-            </div>
-
-            {/* Strategic Pillars: Visão, Missão e Valores */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-200">
-              
-              <div className="bg-slate-50/90 p-4.5 rounded-xl border border-slate-200 hover:border-emerald-300 transition-colors shadow-xs">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-[#006837] flex items-center justify-center mb-2.5">
-                  <Compass className="w-4.5 h-4.5 text-[#006837]" />
-                </div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Visão Estratégica</h3>
-                <p className="mt-2 text-xs text-slate-700 leading-relaxed font-medium">
-                  Alcançar a excelência na atuação rural, por meio da assistência, capacitação, formação e promoção social gerando resultados efetivos aos produtores.
-                </p>
-              </div>
-
-              <div className="bg-slate-50/90 p-4.5 rounded-xl border border-slate-200 hover:border-emerald-300 transition-colors shadow-xs">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-[#006837] flex items-center justify-center mb-2.5">
-                  <Target className="w-4.5 h-4.5 text-[#006837]" />
-                </div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Missão Institucional</h3>
-                <p className="mt-2 text-xs text-slate-700 leading-relaxed">
-                  Transformar conhecimento em oportunidades para o meio rural, por meio da educação profissional, da assistência técnica, da inovação e do fortalecimento da gestão, gerando valor para as pessoas, as propriedades rurais e a sociedade.
-                </p>
-              </div>
-
-              <div className="bg-slate-50/90 p-4.5 rounded-xl border border-slate-200 hover:border-emerald-300 transition-colors shadow-xs">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-[#006837] flex items-center justify-center mb-2.5">
-                  <Award className="w-4.5 h-4.5 text-[#006837]" />
-                </div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Valores Centrais</h3>
-                <p className="mt-2 text-xs text-slate-700 leading-relaxed">
-                  Excelência e Qualidade, Cooperação e Parceria, Compromisso com o Público Rural, Responsabilidade pelos Resultados e Valorização das Pessoas.
-                </p>
-              </div>
-
             </div>
 
             {/* Quick Action Buttons */}
@@ -138,23 +152,9 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
                 />
               </div>
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
               
               <div className="absolute bottom-0 inset-x-0 p-5 sm:p-6 text-white z-10 flex flex-col items-center text-center">
-                {/* Lema do Planejamento 2027–2030 Centralizado */}
-                <div className="mb-3.5 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-950/80 backdrop-blur-md border border-emerald-400/50 text-emerald-200 shadow-xl text-center">
-                  <Sparkles className="w-4 h-4 text-emerald-300 shrink-0" />
-                  <div className="text-center">
-                    <span className="text-[10px] uppercase font-mono tracking-widest text-emerald-300 font-extrabold block leading-tight text-center">
-                      Lema do Planejamento 2027–2030
-                    </span>
-                    <span className="text-xs sm:text-sm font-bold text-white tracking-wide text-center block">
-                      “Conhecimento que transforma, campo que prospera.”
-                    </span>
-                  </div>
-                  <Sparkles className="w-4 h-4 text-emerald-300 shrink-0" />
-                </div>
-
                 <div className="text-xs font-mono uppercase tracking-widest text-emerald-300/90 text-center">
                   Rondônia · Brasil
                 </div>

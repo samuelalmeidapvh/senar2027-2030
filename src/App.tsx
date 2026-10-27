@@ -303,11 +303,31 @@ export default function App() {
           />
         </ZebraSection>
 
-        {/* FAIXA DE IMPACTO ESTRATÉGICO & MÉTRICAS (ABAIXO DO MAPA BSC E ACIMA DA CADEIA DE VALOR) */}
+        {/* FAIXA DE IMPACTO ESTRATÉGICO & MÉTRICAS */}
         <FaixaMetricasEstrategicas />
 
-        {/* CHAPTER 3: Cadeia de Valor: Processos Finalísticos & Suporte Operacional (Fundo Branco Puro) */}
-        <ZebraSection id="cadeia-valor" variant="white">
+        {/* CHAPTER 3: Planos de Ação por Unidade do Organograma (5W2H) */}
+        <ZebraSection id="planos-unidades" variant="white">
+          <PlanosAcaoUnidade
+            planos={planos}
+            unidades={unidades}
+            objetivos={objetivos}
+            usuarioAtivo={usuarioAtivo}
+            onOpenNovoPlano={(sigla) => {
+              if (sigla) setNewPlanoUnidade(sigla);
+              setEditingPlano(null);
+              setIsNewPlanoModalOpen(true);
+            }}
+            onEditPlano={(plano) => {
+              setEditingPlano(plano);
+              setIsNewPlanoModalOpen(true);
+            }}
+            onDeletePlano={handleDeletePlano}
+          />
+        </ZebraSection>
+
+        {/* CHAPTER 4: Cadeia de Valor: Processos Finalísticos & Suporte Operacional */}
+        <ZebraSection id="cadeia-valor" variant="tint">
           <CadeiaValor3D
             processos={processos}
             usuarioAtivo={usuarioAtivo}
@@ -328,32 +348,12 @@ export default function App() {
           />
         </ZebraSection>
 
-        {/* CHAPTER 4: Indicadores de Desempenho / KPIs (Fundo Neutro Suave) */}
-        <ZebraSection id="kpis-dashboard" variant="gray">
+        {/* CHAPTER 5: Indicadores de Desempenho / KPIs */}
+        <ZebraSection id="kpis-dashboard" variant="white">
           <KpiDashboard
             kpis={kpis}
             usuarioAtivo={usuarioAtivo}
             onEditKpi={(kpi) => setEditingKpi(kpi)}
-          />
-        </ZebraSection>
-
-        {/* CHAPTER 5: Planos de Ação por Unidade do Organograma (Fundo Branco Puro) */}
-        <ZebraSection id="planos-unidades" variant="white">
-          <PlanosAcaoUnidade
-            planos={planos}
-            unidades={unidades}
-            objetivos={objetivos}
-            usuarioAtivo={usuarioAtivo}
-            onOpenNovoPlano={(sigla) => {
-              if (sigla) setNewPlanoUnidade(sigla);
-              setEditingPlano(null);
-              setIsNewPlanoModalOpen(true);
-            }}
-            onEditPlano={(plano) => {
-              setEditingPlano(plano);
-              setIsNewPlanoModalOpen(true);
-            }}
-            onDeletePlano={handleDeletePlano}
           />
         </ZebraSection>
 
