@@ -20,7 +20,10 @@ import {
   Award,
   ChevronRight,
   SlidersHorizontal,
-  Workflow
+  Workflow,
+  Maximize2,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 import imageAteg from '../../assets/images/senar_ateg_field_1791657060120.jpg';
 import imageTraining from '../../assets/images/senar_rural_training_1791657074499.jpg';
@@ -44,7 +47,8 @@ export const CadeiaValor3D: React.FC<CadeiaValor3DProps> = ({
   onResetProcessos
 }) => {
   const [selectedId, setSelectedId] = useState<string>(processos[0]?.id || 'proc-1');
-  const [activeView, setActiveView] = useState<'esteira3d' | 'matriz'>('esteira3d');
+  const [activeView, setActiveView] = useState<'renderizada' | 'esteira3d' | 'matriz'>('renderizada');
+  const [isImageModalOpen, setIsImageModalOpen] = useState<boolean>(false);
   const [categoriaFiltro, setCategoriaFiltro] = useState<'TODOS' | 'FINALISTICOS' | 'SUPORTE'>('TODOS');
 
   const selectedProc = processos.find(p => p.id === selectedId) || processos[0];
@@ -106,13 +110,24 @@ export const CadeiaValor3D: React.FC<CadeiaValor3DProps> = ({
         {/* View Switcher and CMS Action Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Switcher */}
-          <div className="p-1 bg-white border border-slate-200 rounded-xl shadow-2xs flex items-center gap-1">
+          <div className="p-1 bg-white border border-slate-200 rounded-xl shadow-2xs flex flex-wrap items-center gap-1">
+            <button
+              onClick={() => setActiveView('renderizada')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeView === 'renderizada'
+                  ? 'bg-[#006837] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>Cadeia de Valor Renderizada</span>
+            </button>
             <button
               onClick={() => setActiveView('esteira3d')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeView === 'esteira3d'
                   ? 'bg-[#006837] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               Esteira 3D Espacial
@@ -122,7 +137,7 @@ export const CadeiaValor3D: React.FC<CadeiaValor3DProps> = ({
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeView === 'matriz'
                   ? 'bg-[#006837] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               Matriz Operacional
@@ -160,57 +175,95 @@ export const CadeiaValor3D: React.FC<CadeiaValor3DProps> = ({
         </div>
       </div>
 
-      {/* Filter Tabs by Macroprocess Category */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-2xs">
-        <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
-          <span className="text-slate-400 flex items-center gap-1 mr-1 px-1">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-            <span>Filtro:</span>
-          </span>
-          <button
-            onClick={() => setCategoriaFiltro('TODOS')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-              categoriaFiltro === 'TODOS'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            Cadeia Completa ({processos.length})
-          </button>
-          <button
-            onClick={() => setCategoriaFiltro('FINALISTICOS')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              categoriaFiltro === 'FINALISTICOS'
-                ? 'bg-[#006837] text-white shadow-xs'
-                : 'text-emerald-800 hover:bg-emerald-50 hover:text-emerald-950'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>4 Processos Finalísticos</span>
-            <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-white/20">
-              {countFinalisticos}
-            </span>
-          </button>
-          <button
-            onClick={() => setCategoriaFiltro('SUPORTE')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              categoriaFiltro === 'SUPORTE'
-                ? 'bg-blue-800 text-white shadow-xs'
-                : 'text-blue-800 hover:bg-blue-50 hover:text-blue-950'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-blue-400" />
-            <span>4 Gestão & Suporte Operacional</span>
-            <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-white/20">
-              {countSuporte}
-            </span>
-          </button>
+      {/* VIEW 0: CADEIA DE VALOR RENDERIZADA OFICIAL */}
+      {activeView === 'renderizada' && (
+        <div className="mt-6 space-y-4">
+          <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-md bg-slate-950 relative group">
+            <img
+              src="/assets/aistudio/Cadeia_de_Valor_do_SENAR_Rond_nia_db3bfcbc.png"
+              alt="Cadeia de Valor do SENAR-AR/RO - Diagrama Oficial Renderizado"
+              className="w-full h-auto object-contain max-h-[850px] mx-auto select-none"
+            />
+            <div className="absolute bottom-4 right-4 z-10 flex gap-2">
+              <button
+                onClick={() => setIsImageModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-900 text-white text-xs font-semibold backdrop-blur-md border border-white/20 shadow-lg flex items-center gap-2 cursor-pointer transition-transform hover:scale-105"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Ver em Alta Resolução</span>
+              </button>
+            </div>
+          </div>
+          <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-950">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0" />
+              <span className="font-bold text-[#006837]">Cadeia de Valor do SENAR-AR/RO:</span>
+              <span className="text-slate-700">Entradas · Alçada Decisória · Processos de Gestão · Processos Finalísticos (01 a 04) · Processos de Suporte (05 a 15) · Saídas & Valor Público</span>
+            </div>
+            <button
+              onClick={() => setIsImageModalOpen(true)}
+              className="text-[#006837] hover:text-[#004d26] font-semibold flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>Ampliar Diagrama</span>
+            </button>
+          </div>
         </div>
+      )}
 
-        <div className="hidden sm:flex items-center gap-2 text-[11px] font-mono text-slate-500 px-2">
-          <span>{processosFiltrados.length} processos exibidos</span>
+      {/* Filter Tabs by Macroprocess Category (Exibido nas visões interativas) */}
+      {activeView !== 'renderizada' && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-2xs">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
+            <span className="text-slate-400 flex items-center gap-1 mr-1 px-1">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+              <span>Filtro:</span>
+            </span>
+            <button
+              onClick={() => setCategoriaFiltro('TODOS')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                categoriaFiltro === 'TODOS'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              Cadeia Completa ({processos.length})
+            </button>
+            <button
+              onClick={() => setCategoriaFiltro('FINALISTICOS')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                categoriaFiltro === 'FINALISTICOS'
+                  ? 'bg-[#006837] text-white shadow-xs'
+                  : 'text-emerald-800 hover:bg-emerald-50 hover:text-emerald-950'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>4 Processos Finalísticos</span>
+              <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-white/20">
+                {countFinalisticos}
+              </span>
+            </button>
+            <button
+              onClick={() => setCategoriaFiltro('SUPORTE')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                categoriaFiltro === 'SUPORTE'
+                  ? 'bg-blue-800 text-white shadow-xs'
+                  : 'text-blue-800 hover:bg-blue-50 hover:text-blue-950'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-400" />
+              <span>4 Gestão & Suporte Operacional</span>
+              <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-white/20">
+                {countSuporte}
+              </span>
+            </button>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 text-[11px] font-mono text-slate-500 px-2">
+            <span>{processosFiltrados.length} processos exibidos</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* VIEW 1: ESTEIRA 3D ESPACIAL */}
       {activeView === 'esteira3d' && (
@@ -572,6 +625,39 @@ export const CadeiaValor3D: React.FC<CadeiaValor3DProps> = ({
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal for High-Resolution Cadeia de Valor */}
+      {isImageModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
+          onClick={() => setIsImageModalOpen(false)}
+        >
+          <div 
+            className="relative w-full max-w-6xl max-h-[92vh] bg-slate-900 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm">Cadeia de Valor do SENAR-AR/RO (Diagrama Oficial)</span>
+                <span className="text-xs text-slate-400 font-mono">Alta Resolução</span>
+              </div>
+              <button
+                onClick={() => setIsImageModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-auto max-h-[calc(92vh-60px)] flex items-center justify-center bg-slate-950">
+              <img
+                src="/assets/aistudio/Cadeia_de_Valor_do_SENAR_Rond_nia_db3bfcbc.png"
+                alt="Cadeia de Valor do SENAR-AR/RO Oficial"
+                className="w-full h-auto max-h-[82vh] object-contain rounded-lg"
+              />
+            </div>
           </div>
         </div>
       )}

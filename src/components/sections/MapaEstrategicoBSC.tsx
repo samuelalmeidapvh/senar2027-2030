@@ -133,7 +133,7 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
         /* OFFICIAL IMAGE VIEW */
         <div className="mt-6 rounded-2xl overflow-hidden border border-slate-200 shadow-md bg-slate-950 relative group">
           <img
-            src="/assets/aistudio/Mapa_Estrat_gico_SENAR_2027_2030_BSC_4ee0c9a7.png"
+            src="/assets/aistudio/Mapa_Estrat_gico_SENAR_2027_2030_BSC_V.3_e406e592.png"
             alt="Mapa Estratégico SENAR 2027-2030 BSC Oficial"
             className="w-full h-auto object-contain max-h-[850px] mx-auto select-none"
           />
@@ -204,56 +204,116 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
             </div>
           </div>
 
-          {/* PERSPECTIVAS: SOCIEDADE & CLIENTES (RESULTADOS PARA A SOCIEDADE) */}
-          <div className="rounded-2xl border border-teal-200 bg-white/95 shadow-sm overflow-hidden">
+          {/* 1. PERSPECTIVA SOCIEDADE: RESULTADOS PARA A SOCIEDADE */}
+          <div className="rounded-2xl border border-emerald-300 bg-white shadow-sm overflow-hidden">
             <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-              {/* Left Ribbons: Perspectiva Sociedade & Clientes */}
-              <div className="lg:col-span-3 flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 divide-y divide-slate-200">
-                <div className="p-4 bg-gradient-to-r from-emerald-700 to-emerald-600 text-white flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+              {/* Ribbon Esquerdo: Perspectiva Sociedade */}
+              <div className="lg:col-span-3 p-5 bg-gradient-to-r from-emerald-800 via-[#006837] to-emerald-700 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-emerald-600/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 shadow-inner">
                     <Users className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <span className="text-[10px] font-mono tracking-wider uppercase text-emerald-200 font-bold block">
-                      Perspectiva
+                      Perspectiva 1
                     </span>
-                    <h4 className="text-sm font-black uppercase text-white">SOCIEDADE</h4>
-                    <p className="text-[11px] text-emerald-100">Impacto para o Agro de Rondônia</p>
+                    <h4 className="text-base font-black uppercase text-white tracking-wide">
+                      SOCIEDADE
+                    </h4>
+                    <p className="text-xs text-emerald-100">Impacto para o Agro de Rondônia</p>
                   </div>
                 </div>
+                <div className="mt-4 pt-3 border-t border-white/20 hidden lg:block">
+                  <span className="text-[11px] font-mono text-emerald-200 font-medium">
+                    4 Entregas de Impacto Mensurável
+                  </span>
+                </div>
+              </div>
 
-                <div className="p-4 bg-gradient-to-r from-sky-600 to-cyan-600 text-white flex items-center gap-3 flex-1">
-                  <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+              {/* Conteúdo Alinhado: 4 Resultados para a Sociedade */}
+              <div className="lg:col-span-9 p-4 sm:p-5 flex flex-col justify-center bg-emerald-50/20">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#006837] bg-emerald-100/90 px-3 py-1 rounded-full border border-emerald-200/80">
+                    RESULTADOS PARA A SOCIEDADE
+                  </span>
+                  <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                    Entregas e Impactos para o Homem do Campo
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {RESULTADOS_SOCIEDADE.map((res, idx) => (
+                    <div
+                      key={res.id}
+                      className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all group"
+                    >
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#006837] flex items-center justify-center group-hover:scale-110 transition-transform">
+                          {idx === 0 && <Sprout className="w-4.5 h-4.5 text-emerald-600" />}
+                          {idx === 1 && <TrendingUp className="w-4.5 h-4.5 text-teal-600" />}
+                          {idx === 2 && <Users className="w-4.5 h-4.5 text-sky-600" />}
+                          {idx === 3 && <Globe2 className="w-4.5 h-4.5 text-indigo-600" />}
+                        </div>
+                        <span className="text-[10px] font-mono font-bold text-slate-400">#0{idx + 1}</span>
+                      </div>
+                      <h5 className="text-xs font-bold text-slate-800 leading-snug group-hover:text-emerald-900">
+                        {res.titulo}
+                      </h5>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                        {res.descricao}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. PERSPECTIVA CLIENTES: OBJETIVO ESTRATÉGICO 01 */}
+          <div className="rounded-2xl border border-sky-300 bg-white shadow-sm overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
+              {/* Ribbon Esquerdo: Perspectiva Clientes */}
+              <div className="lg:col-span-3 p-5 bg-gradient-to-r from-sky-700 via-sky-600 to-cyan-600 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-sky-500/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 shadow-inner">
                     <Globe2 className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <span className="text-[10px] font-mono tracking-wider uppercase text-sky-200 font-bold block">
-                      Perspectiva
+                      Perspectiva 2
                     </span>
-                    <h4 className="text-sm font-black uppercase text-white">CLIENTES</h4>
-                    <p className="text-[11px] text-sky-100">Produtores Rurais e Sociedade</p>
+                    <h4 className="text-base font-black uppercase text-white tracking-wide">
+                      CLIENTES
+                    </h4>
+                    <p className="text-xs text-sky-100">Produtores Rurais e Sociedade</p>
                   </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/20 hidden lg:block">
+                  <span className="text-[11px] font-mono text-sky-200 font-medium">
+                    Objetivo Estratégico 01
+                  </span>
                 </div>
               </div>
 
-              {/* Right Content: Objetivo Estratégico na Perspectiva CLIENTES + 4 Resultados para a Sociedade */}
-              <div className="lg:col-span-9 p-4 sm:p-6 flex flex-col justify-center bg-slate-50/60">
-                
-                {/* OBJETIVO ESTRATÉGICO DA PERSPECTIVA CLIENTES */}
+              {/* Conteúdo Alinhado: Objetivo Estratégico 01 na Perspectiva Clientes */}
+              <div className="lg:col-span-9 p-4 sm:p-5 flex flex-col justify-center bg-sky-50/30">
                 <div 
                   onClick={() => obj01 && onSelectObjetivo(obj01)}
-                  className={`mb-5 p-4 sm:p-5 rounded-2xl border text-left cursor-pointer transition-all shadow-sm ${
+                  className={`p-4 sm:p-5 rounded-2xl border text-left cursor-pointer transition-all shadow-xs ${
                     selectedObjetivoId === obj01?.id
-                      ? 'border-sky-500 bg-sky-50/80 ring-2 ring-sky-500/30'
-                      : 'border-sky-200 bg-gradient-to-r from-sky-50/90 via-cyan-50/70 to-emerald-50/80 hover:border-sky-300 hover:shadow-md'
+                      ? 'border-sky-500 bg-sky-50/90 ring-2 ring-sky-500/30 shadow-md'
+                      : 'border-sky-200 bg-white hover:border-sky-400 hover:shadow-sm'
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full bg-sky-600 text-white font-mono text-xs font-black uppercase tracking-wider shadow-xs">
-                        OBJETIVO ESTRATÉGICO · PERSPECTIVA CLIENTES
+                      <span className="w-7 h-7 rounded-full bg-sky-600 text-white font-mono font-black text-xs flex items-center justify-center shadow-xs">
+                        01
                       </span>
-                      <span className="text-xs font-bold text-slate-500 font-mono">
+                      <span className="px-2.5 py-1 rounded-md bg-sky-100 text-sky-900 font-mono text-xs font-bold uppercase tracking-wide">
+                        ASSISTÊNCIA TÉCNICA, PROMOÇÃO SOCIAL E FORMAÇÃO PROFISSIONAL
+                      </span>
+                      <span className="text-xs font-bold text-slate-500 font-mono hidden sm:inline">
                         DETEC / ATeG
                       </span>
                     </div>
@@ -270,47 +330,15 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
                     “Fortalecer e ampliar a assistência técnica rural, a promoção social, a capacitação e a formação profissional por meio de uma gestão ágil, moderna e de qualidade nos resultados.”
                   </h5>
 
-                  <div className="mt-3 pt-3 border-t border-sky-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-sky-900">
-                    <div className="flex items-center gap-1.5 font-semibold">
-                      <ArrowDown className="w-4 h-4 text-sky-600 shrink-0" />
-                      <span>Resultados e Entregas Diretas deste Objetivo para o Homem do Campo e a Sociedade:</span>
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-sky-900">
+                    <div className="flex items-center gap-1.5 font-medium text-slate-600">
+                      <span>Unidade Responsável:</span>
+                      <strong className="text-slate-900">DETEC / DATEG / Formação Profissional Rural & ATeG</strong>
                     </div>
                     <span className="inline-flex items-center gap-1 text-sky-700 font-bold hover:underline shrink-0">
                       Ver Indicadores & 5W2H <ArrowRight className="w-3.5 h-3.5" />
                     </span>
                   </div>
-                </div>
-
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-teal-800 bg-teal-100/80 px-3 py-0.5 rounded-full border border-teal-200/60">
-                    RESULTADOS PARA A SOCIEDADE
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium">4 Entregas de Impacto Mensurável</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {RESULTADOS_SOCIEDADE.map((res, idx) => (
-                    <div
-                      key={res.id}
-                      className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-teal-400 hover:shadow-xs transition-all group"
-                    >
-                      <div className="flex items-center gap-2.5 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center group-hover:scale-110 transition-transform">
-                          {idx === 0 && <Sprout className="w-4.5 h-4.5 text-emerald-600" />}
-                          {idx === 1 && <TrendingUp className="w-4.5 h-4.5 text-teal-600" />}
-                          {idx === 2 && <Users className="w-4.5 h-4.5 text-sky-600" />}
-                          {idx === 3 && <Globe2 className="w-4.5 h-4.5 text-indigo-600" />}
-                        </div>
-                        <span className="text-[10px] font-mono font-bold text-slate-400">#0{idx + 1}</span>
-                      </div>
-                      <h5 className="text-xs font-bold text-slate-800 leading-snug group-hover:text-teal-900">
-                        {res.titulo}
-                      </h5>
-                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                        {res.descricao}
-                      </p>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
@@ -595,7 +623,7 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
             </div>
             <div className="p-4 overflow-auto max-h-[calc(92vh-60px)] flex items-center justify-center bg-slate-950">
               <img
-                src="/assets/aistudio/Mapa_Estrat_gico_SENAR_2027_2030_BSC_4ee0c9a7.png"
+                src="/assets/aistudio/Mapa_Estrat_gico_SENAR_2027_2030_BSC_V.3_e406e592.png"
                 alt="Mapa Estratégico SENAR 2027-2030 BSC"
                 className="w-full h-auto max-h-[82vh] object-contain rounded-lg"
               />
