@@ -45,6 +45,9 @@ export const HeaderFixed: React.FC<HeaderFixedProps> = ({
           <a href="#mapa-bsc" className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0">
             Mapa BSC
           </a>
+          <a href="#fichas-tecnicas-objetivos" className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0">
+            Fichas BSC
+          </a>
           <a href="#planos-unidades" className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0">
             Planos de Ação
           </a>

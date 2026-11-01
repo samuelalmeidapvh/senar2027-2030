@@ -27,6 +27,7 @@ import { HeroProposito } from './components/sections/HeroProposito';
 import { CadeiaValor3D } from './components/sections/CadeiaValor3D';
 import { MapaEstrategicoBSC } from './components/sections/MapaEstrategicoBSC';
 import { FaixaMetricasEstrategicas } from './components/sections/FaixaMetricasEstrategicas';
+import { FichasTecnicasObjetivosBSC } from './components/sections/FichasTecnicasObjetivosBSC';
 import { KpiDashboard } from './components/sections/KpiDashboard';
 import { PlanosAcaoUnidade } from './components/sections/PlanosAcaoUnidade';
 import { PainelGeminiAI } from './components/sections/PainelGeminiAI';
@@ -303,10 +304,15 @@ export default function App() {
           />
         </ZebraSection>
 
-        {/* FAIXA DE IMPACTO ESTRATÉGICO & MÉTRICAS */}
+        {/* FAIXA DE IMPACTO ESTRATÉGICO & MÉTRICAS (Impacto Institucional Comprovado) */}
         <FaixaMetricasEstrategicas />
 
-        {/* CHAPTER 3: Planos de Ação por Unidade do Organograma (5W2H) */}
+        {/* ESTRUTURA EDITÁVEL: Fichas Técnicas & Planos de Ação por Objetivo Estratégico do BSC */}
+        <ZebraSection id="fichas-tecnicas-objetivos" variant="gray">
+          <FichasTecnicasObjetivosBSC usuarioAtivo={usuarioAtivo} />
+        </ZebraSection>
+
+        {/* CHAPTER 3: Planos de Ação por Unidade do Organograma (5W2H) (Organograma & Governança SENAR-AR/RO) */}
         <ZebraSection id="planos-unidades" variant="white">
           <PlanosAcaoUnidade
             planos={planos}

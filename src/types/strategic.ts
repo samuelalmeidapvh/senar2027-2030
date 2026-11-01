@@ -162,3 +162,74 @@ export interface InsightEstrategicoIA {
   fonte?: string;
   avisoDemanda?: string;
 }
+
+export interface IniciativaEstrategicaFicha {
+  id: string;
+  codigo: string;
+  solucaoIniciativa: string;
+  vinculoResultadoEsperado: string;
+  unidadeResponsavel: string;
+  unidadesParceiras: string;
+  detalhamentoTecnico?: string;
+}
+
+export interface IndicadorMetaFicha {
+  id: string;
+  codigo: string;
+  nome: string;
+  unidadeMedida: string;
+  linhaBase2026: string;
+  meta2027: string;
+  meta2028: string;
+  meta2029: string;
+  meta2030: string;
+  fonteVerificacao: string;
+}
+
+export interface CronogramaOrcamentoFicha {
+  id: string;
+  codigo: string;
+  iniciativaEstrategica: string;
+  ano2027: string;
+  ano2028: string;
+  ano2029: string;
+  ano2030: string;
+  orcamento2027: number;
+  orcamento2028: number;
+  orcamento2029_30: number;
+  total: number;
+}
+
+export interface RiscoMitigadoFicha {
+  id: string;
+  fatorCritico: string;
+  impactoPotencial: string;
+  providenciaMitigadora: string;
+}
+
+export interface FichaTecnicaObjetivo {
+  id: string;
+  codigoObjetivo: string;
+  nomeObjetivo: string;
+  enunciado: string;
+  perspectivaBsc: PerspectivaBSCType;
+  unidadeResponsavelLider: string;
+  unidadesParceiras: string;
+  responsavelPreenchimento: string;
+  cargoResponsavel: string;
+  dataElaboracaoRevisao: string;
+  diretrizesResultados: string[];
+  solucoesIniciativas: IniciativaEstrategicaFicha[];
+  indicadoresMetas: IndicadorMetaFicha[];
+  cronogramaOrcamento: CronogramaOrcamentoFicha[];
+  governanca: {
+    statusGeral: string;
+    percentualExecucao: number;
+    periodicidadeMonitoramento: string;
+    ultimaAtualizacao: string;
+    ritosInstitucionais: string[];
+  };
+  analiseRiscos: RiscoMitigadoFicha[];
+  fundamentacaoTecnica: string;
+  assinaturaResponsavel: string;
+}
