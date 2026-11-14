@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Target, Compass, Award, ArrowDown, Sparkles, Network, Maximize2, X } from 'lucide-react';
-import heroImage from '../../assets/images/senar_hero_field_1791657047722.jpg';
+import heroImage from '../../assets/images/senar_rondonia_producao_final_1794686224162.jpg';
 import logoFaperonOficial from '../../assets/images/logo_faperon_senar_colorida_oficial.png';
 
 interface HeroPropositoProps {
@@ -38,19 +38,18 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
                 <span>JUNTOS, FORTALECENDO O PRODUTOR RURAL DE RONDÔNIA</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.15] max-w-2xl text-balance">
-                Conhecimento, tecnologia e pessoas por um agro mais forte e sustentável.
-              </h1>
-
-              {/* Official Purpose Callout from Mapa Estratégico */}
-              <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-emerald-800 to-[#006837] text-white shadow-sm border border-emerald-700/40">
-                <div className="text-[11px] font-mono uppercase tracking-wider font-bold text-emerald-200 mb-1 flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5" />
-                  <span>Propósito Institucional (Ciclo 2027–2030)</span>
+              {/* Official Purpose Callout from Mapa Estratégico (Destaque Principal) */}
+              <div className="w-[90%] mx-auto mt-1 px-6 py-8 sm:px-10 sm:py-10 rounded-2xl bg-gradient-to-br from-emerald-950 via-[#006837] to-emerald-700 text-white shadow-lg border border-emerald-600/50 relative overflow-hidden flex flex-col items-center justify-center text-center">
+                <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-emerald-400/15 blur-2xl pointer-events-none" />
+                <div className="relative z-10 flex flex-col items-center justify-center text-center max-w-2xl mx-auto">
+                  <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-lg bg-white/15 border border-white/20 text-xs font-mono uppercase tracking-wider font-extrabold text-emerald-200 mb-3.5">
+                    <Target className="w-4 h-4 text-emerald-300" />
+                    <span>Propósito Institucional (Ciclo 2027–2030)</span>
+                  </div>
+                  <h1 className="text-xl sm:text-2xl lg:text-[26px] font-extrabold leading-snug text-white tracking-tight text-balance text-center">
+                    “Transformar vidas e fortalecer o campo, criando oportunidades para que as pessoas prosperem por meio do conhecimento, do trabalho e do desenvolvimento sustentável.”
+                  </h1>
                 </div>
-                <p className="text-sm sm:text-base font-medium leading-relaxed text-emerald-50">
-                  “Transformar vidas e fortalecer o campo, criando oportunidades para que as pessoas prosperem por meio do conhecimento, do trabalho e do desenvolvimento sustentável.”
-                </p>
               </div>
 
               {/* Strategic Pillars: Visão, Missão e Valores (Inseridos logo após o Propósito Institucional) */}
@@ -147,9 +146,9 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
             <div className="relative rounded-2xl overflow-hidden border border-slate-200/90 shadow-md h-full min-h-[460px] max-h-[620px] bg-slate-900 group">
               <img
                 src={heroImage}
-                alt="Agricultura sustentável e cafeicultura de precisão em Rondônia - SENAR-AR/RO"
+                alt="Atuação produtiva do SENAR Rondônia: Café Robusta, pecuária de leite e corte, cacau, piscicultura de tambaqui e olericultura"
                 referrerPolicy="no-referrer"
-                className="absolute inset-0 w-full h-full object-cover object-[center_30%] group-hover:scale-103 transition-transform duration-700 pointer-events-none select-none"
+                className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-103 transition-transform duration-700 pointer-events-none select-none"
               />
 
               {/* Botão Flutuante para Apresentar a Estrutura Organizacional */}

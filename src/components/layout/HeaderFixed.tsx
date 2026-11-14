@@ -48,12 +48,6 @@ export const HeaderFixed: React.FC<HeaderFixedProps> = ({
           <a href="#fichas-tecnicas-objetivos" className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0">
             Fichas BSC
           </a>
-          <a href="#planos-unidades" className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0">
-            Planos de Ação
-          </a>
-          <a href="#cadeia-valor" className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0">
-            Cadeia de Valor
-          </a>
           <a href="#kpis-dashboard" className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0">
             KPIs
           </a>

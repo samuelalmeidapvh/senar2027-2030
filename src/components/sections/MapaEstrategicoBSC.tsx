@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ObjetivoEstrategico, IndicadorKPI } from '../../types/strategic';
 import { 
   RESULTADOS_SOCIEDADE, 
-  PILARES_APRENDIZADO, 
-  IMPACTOS_GERAIS 
+  PILARES_APRENDIZADO 
 } from '../../data/initialStrategicData';
 import { StatusBadge } from '../ui/StatusBadge';
 import { 
@@ -27,25 +26,170 @@ import {
   ArrowRight,
   ArrowDown,
   Sparkles,
-  Info
+  Info,
+  Edit3,
+  Plus,
+  Trash2,
+  RotateCcw,
+  Award,
+  Check
 } from 'lucide-react';
 import logoFaperonOficial from '../../assets/images/logo_faperon_senar_colorida_oficial.png';
+
+interface ResultadoSociedadeItem {
+  id: string;
+  titulo: string;
+  icone: string;
+  descricao: string;
+  metaTitulo?: string;
+  metaValor?: string;
+}
+
+const STORAGE_KEY_RESULTADOS_SOCIEDADE = 'senar_resultados_sociedade_v1';
+
+const DEFAULT_RESULTADOS_SOCIEDADE: ResultadoSociedadeItem[] = RESULTADOS_SOCIEDADE.map((item, idx) =>
+  idx === 0
+    ? {
+        ...item,
+        metaTitulo: 'Produtores Atendidos 2027–2030',
+        metaValor: '42.166'
+      }
+    : {
+        ...item,
+        metaTitulo: '',
+        metaValor: ''
+      }
+);
+
+const SOCIEDADE_ICONS = [
+  { value: 'Sprout', label: 'Capacitação / Agro' },
+  { value: 'TrendingUp', label: 'Produtividade / Renda' },
+  { value: 'Users', label: 'Famílias / Pessoas' },
+  { value: 'Globe2', label: 'Competitividade / Sustentabilidade' },
+  { value: 'Award', label: 'Excelência / Metas' },
+  { value: 'Target', label: 'Objetivo / Foco' }
+];
 
 interface MapaEstrategicoBSCProps {
   objetivos: ObjetivoEstrategico[];
   kpis: IndicadorKPI[];
   onSelectObjetivo: (objetivo: ObjetivoEstrategico) => void;
   selectedObjetivoId: string | null;
+  onOpenConsolidado2030?: () => void;
 }
 
 export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
   objetivos,
   kpis,
   onSelectObjetivo,
-  selectedObjetivoId
+  selectedObjetivoId,
+  onOpenConsolidado2030
 }) => {
   const [viewMode, setViewMode] = useState<'interactive' | 'official_image'>('interactive');
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+
+  const [resultadosSociedade, setResultadosSociedade] = useState<ResultadoSociedadeItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_RESULTADOS_SOCIEDADE);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // fallback to default
+    }
+    return DEFAULT_RESULTADOS_SOCIEDADE;
+  });
+
+  const [isResultadoModalOpen, setIsResultadoModalOpen] = useState(false);
+  const [editingResultado, setEditingResultado] = useState<ResultadoSociedadeItem | null>(null);
+  const [formResultado, setFormResultado] = useState<ResultadoSociedadeItem>({
+    id: '',
+    titulo: '',
+    icone: 'Sprout',
+    descricao: '',
+    metaTitulo: '',
+    metaValor: ''
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_RESULTADOS_SOCIEDADE, JSON.stringify(resultadosSociedade));
+    } catch {
+      // ignore storage errors
+    }
+  }, [resultadosSociedade]);
+
+  const renderSociedadeIcon = (icone: string, idx: number) => {
+    switch (icone) {
+      case 'Sprout':
+        return <Sprout className="w-4.5 h-4.5 text-emerald-600" />;
+      case 'TrendingUp':
+        return <TrendingUp className="w-4.5 h-4.5 text-teal-600" />;
+      case 'Users':
+        return <Users className="w-4.5 h-4.5 text-sky-600" />;
+      case 'Globe2':
+        return <Globe2 className="w-4.5 h-4.5 text-indigo-600" />;
+      case 'Award':
+        return <Award className="w-4.5 h-4.5 text-amber-600" />;
+      case 'Target':
+        return <Target className="w-4.5 h-4.5 text-emerald-700" />;
+      default:
+        if (idx === 0) return <Sprout className="w-4.5 h-4.5 text-emerald-600" />;
+        if (idx === 1) return <TrendingUp className="w-4.5 h-4.5 text-teal-600" />;
+        if (idx === 2) return <Users className="w-4.5 h-4.5 text-sky-600" />;
+        return <Globe2 className="w-4.5 h-4.5 text-indigo-600" />;
+    }
+  };
+
+  const openNewResultadoModal = () => {
+    setEditingResultado(null);
+    setFormResultado({
+      id: `rs-${Date.now()}`,
+      titulo: '',
+      icone: 'Sprout',
+      descricao: '',
+      metaTitulo: '',
+      metaValor: ''
+    });
+    setIsResultadoModalOpen(true);
+  };
+
+  const openEditResultadoModal = (item: ResultadoSociedadeItem) => {
+    setEditingResultado(item);
+    setFormResultado({
+      ...item,
+      metaTitulo: item.metaTitulo || '',
+      metaValor: item.metaValor || ''
+    });
+    setIsResultadoModalOpen(true);
+  };
+
+  const handleSaveResultado = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formResultado.titulo.trim()) return;
+    if (editingResultado) {
+      setResultadosSociedade(prev =>
+        prev.map(item => (item.id === editingResultado.id ? { ...formResultado } : item))
+      );
+    } else {
+      setResultadosSociedade(prev => [...prev, { ...formResultado }]);
+    }
+    setIsResultadoModalOpen(false);
+    setEditingResultado(null);
+  };
+
+  const handleDeleteResultado = (id: string) => {
+    setResultadosSociedade(prev => prev.filter(item => item.id !== id));
+    if (editingResultado?.id === id) {
+      setIsResultadoModalOpen(false);
+      setEditingResultado(null);
+    }
+  };
+
+  const handleResetResultados = () => {
+    setResultadosSociedade(DEFAULT_RESULTADOS_SOCIEDADE);
+  };
 
   // Official 5 objectives from the official strategic map
   const obj01 = objetivos.find(o => o.codigo === 'OE-01') || objetivos[0];
@@ -112,19 +256,6 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
           >
             <Maximize2 className="w-4 h-4" />
           </button>
-        </div>
-      </div>
-
-      {/* Cause-and-Effect explanation notice */}
-      <div className="mt-4 p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-900">
-        <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-[#006837] shrink-0" />
-          <span>
-            <strong>Fluxo de Causa e Efeito:</strong> A base de <em>Aprendizado e Crescimento</em> capacita a execução dos <em>Processos Internos (01 a 04)</em>, gerando impacto direto nas perspectivas de <em>Clientes e Sociedade</em>. Clique em qualquer objetivo para ver KPIs e 5W2H.
-          </span>
-        </div>
-        <div className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-[#006837] bg-white px-2.5 py-1 rounded-md border border-emerald-200 shrink-0">
-          <span>Ciclo 2027–2030</span>
         </div>
       </div>
 
@@ -225,43 +356,104 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
                 </div>
                 <div className="mt-4 pt-3 border-t border-white/20 hidden lg:block">
                   <span className="text-[11px] font-mono text-emerald-200 font-medium">
-                    4 Entregas de Impacto Mensurável
+                    {resultadosSociedade.length} {resultadosSociedade.length === 1 ? 'Entrega de Impacto Mensurável' : 'Entregas de Impacto Mensurável'}
                   </span>
                 </div>
               </div>
 
-              {/* Conteúdo Alinhado: 4 Resultados para a Sociedade */}
+              {/* Conteúdo Alinhado: Resultados para a Sociedade (Editável) */}
               <div className="lg:col-span-9 p-4 sm:p-5 flex flex-col justify-center bg-emerald-50/20">
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#006837] bg-emerald-100/90 px-3 py-1 rounded-full border border-emerald-200/80">
                     RESULTADOS PARA A SOCIEDADE
                   </span>
-                  <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-                    Entregas e Impactos para o Homem do Campo
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-slate-500 font-medium hidden md:inline">
+                      Entregas e Impactos para o Homem do Campo
+                    </span>
+                    <button
+                      type="button"
+                      onClick={openNewResultadoModal}
+                      className="px-2.5 py-1 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-[11px] font-semibold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Incluir</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetResultados}
+                      title="Restaurar resultados padrão"
+                      className="p-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {RESULTADOS_SOCIEDADE.map((res, idx) => (
+                  {resultadosSociedade.map((res, idx) => (
                     <div
                       key={res.id}
-                      className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all group"
+                      className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all group flex flex-col justify-between relative"
                     >
-                      <div className="flex items-center gap-2.5 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#006837] flex items-center justify-center group-hover:scale-110 transition-transform">
-                          {idx === 0 && <Sprout className="w-4.5 h-4.5 text-emerald-600" />}
-                          {idx === 1 && <TrendingUp className="w-4.5 h-4.5 text-teal-600" />}
-                          {idx === 2 && <Users className="w-4.5 h-4.5 text-sky-600" />}
-                          {idx === 3 && <Globe2 className="w-4.5 h-4.5 text-indigo-600" />}
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#006837] flex items-center justify-center group-hover:scale-110 transition-transform">
+                              {renderSociedadeIcon(res.icone, idx)}
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-slate-400">#0{idx + 1}</span>
+                          </div>
+
+                          {/* Meta no canto superior direito */}
+                          <div className="flex items-start gap-1 min-w-0">
+                            {(res.metaTitulo || res.metaValor) && (
+                              <div className="text-right bg-emerald-50 border border-emerald-200/90 rounded-lg px-2 py-1 leading-tight">
+                                {res.metaTitulo && (
+                                  <span className="text-[9px] font-mono font-bold text-emerald-800 block leading-tight">
+                                    {res.metaTitulo}
+                                  </span>
+                                )}
+                                {res.metaValor && (
+                                  <span className="text-xs font-black font-mono text-[#006837] tabular-nums block">
+                                    {res.metaValor}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-[10px] font-mono font-bold text-slate-400">#0{idx + 1}</span>
+
+                        <h5 className="text-xs font-bold text-slate-800 leading-snug group-hover:text-emerald-900">
+                          {res.titulo}
+                        </h5>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                          {res.descricao}
+                        </p>
                       </div>
-                      <h5 className="text-xs font-bold text-slate-800 leading-snug group-hover:text-emerald-900">
-                        {res.titulo}
-                      </h5>
-                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                        {res.descricao}
-                      </p>
+
+                      {/* Ações de Edição (Alterar / Excluir) */}
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openEditResultadoModal(res)}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/70 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Alterar card e meta"
+                        >
+                          <Edit3 className="w-2.5 h-2.5" />
+                          <span>Editar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteResultado(res.id)}
+                          disabled={resultadosSociedade.length <= 1}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/70 disabled:opacity-40 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Excluir resultado"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                          <span>Excluir</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -335,9 +527,16 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
                       <span>Unidade Responsável:</span>
                       <strong className="text-slate-900">DETEC / DATEG / Formação Profissional Rural & ATeG</strong>
                     </div>
-                    <span className="inline-flex items-center gap-1 text-sky-700 font-bold hover:underline shrink-0">
-                      Ver Indicadores & 5W2H <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenConsolidado2030?.();
+                      }}
+                      className="inline-flex items-center gap-1 text-sky-700 hover:text-sky-900 font-bold hover:underline shrink-0 cursor-pointer"
+                    >
+                      Ver Indicadores <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -568,34 +767,6 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
             </div>
           </div>
 
-          {/* BOTTOM RIBBON: RESULTADOS E IMPACTOS */}
-          <div className="rounded-2xl bg-gradient-to-r from-emerald-900 via-[#006837] to-emerald-950 text-white p-4 sm:p-5 shadow-sm border border-emerald-700/50">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-2 shrink-0">
-                <Sparkles className="w-4 h-4 text-emerald-300" />
-                <span className="text-xs font-mono font-extrabold uppercase tracking-widest text-emerald-200">
-                  RESULTADOS E IMPACTOS
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 sm:gap-3 w-full">
-                {IMPACTOS_GERAIS.map((imp) => (
-                  <div
-                    key={imp.id}
-                    className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-xs flex items-center gap-2 text-xs font-bold text-white transition-colors"
-                  >
-                    {imp.icone === 'Sprout' && <Sprout className="w-3.5 h-3.5 text-emerald-300" />}
-                    {imp.icone === 'Users' && <Users className="w-3.5 h-3.5 text-sky-300" />}
-                    {imp.icone === 'Lightbulb' && <Lightbulb className="w-3.5 h-3.5 text-amber-300" />}
-                    {imp.icone === 'TrendingUp' && <TrendingUp className="w-3.5 h-3.5 text-teal-300" />}
-                    {imp.icone === 'Heart' && <Heart className="w-3.5 h-3.5 text-rose-300" />}
-                    <span className="tracking-wide text-[11px] sm:text-xs">{imp.titulo}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
         </div>
       )}
 
@@ -628,6 +799,150 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
                 className="w-full h-auto max-h-[82vh] object-contain rounded-lg"
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: INCLUIR / EDITAR RESULTADO PARA A SOCIEDADE & META */}
+      {isResultadoModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs"
+          onClick={() => setIsResultadoModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 bg-gradient-to-r from-[#004d26] to-[#006837] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-emerald-200" />
+                <div>
+                  <h4 className="text-sm font-bold text-white">
+                    {editingResultado ? 'Alterar Resultado & Meta (Sociedade)' : 'Incluir Novo Resultado (Sociedade)'}
+                  </h4>
+                  <p className="text-[11px] text-emerald-100/90">
+                    Perspectiva Sociedade · Entregas e metas de impacto 2027–2030
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResultadoModalOpen(false)}
+                className="p-1 rounded-lg text-emerald-100 hover:text-white hover:bg-white/15 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveResultado} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Título do Resultado
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formResultado.titulo}
+                  onChange={(e) => setFormResultado({ ...formResultado, titulo: e.target.value })}
+                  placeholder="Ex.: Produtores rurais mais capacitados"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:border-[#006837]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Descrição
+                </label>
+                <textarea
+                  rows={3}
+                  value={formResultado.descricao}
+                  onChange={(e) => setFormResultado({ ...formResultado, descricao: e.target.value })}
+                  placeholder="Descreva o impacto institucional esperado..."
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:border-[#006837]"
+                />
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#006837] block">
+                  Meta no Canto Superior Direito (Opcional)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Rótulo da Meta
+                    </label>
+                    <input
+                      type="text"
+                      value={formResultado.metaTitulo || ''}
+                      onChange={(e) => setFormResultado({ ...formResultado, metaTitulo: e.target.value })}
+                      placeholder="Ex.: Produtores Atendidos 2027–2030"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-[#006837]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Valor da Meta
+                    </label>
+                    <input
+                      type="text"
+                      value={formResultado.metaValor || ''}
+                      onChange={(e) => setFormResultado({ ...formResultado, metaValor: e.target.value })}
+                      placeholder="Ex.: 42.166"
+                      className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-[#006837]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Ícone
+                </label>
+                <select
+                  value={formResultado.icone}
+                  onChange={(e) => setFormResultado({ ...formResultado, icone: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-[#006837]"
+                >
+                  {SOCIEDADE_ICONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
+                {editingResultado && resultadosSociedade.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteResultado(editingResultado.id)}
+                    className="px-3 py-2 rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Excluir</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsResultadoModalOpen(false)}
+                    className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 border border-slate-200 text-xs font-semibold cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Salvar</span>
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

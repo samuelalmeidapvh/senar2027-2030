@@ -189,6 +189,7 @@ export interface IndicadorMetaFicha {
 export interface CronogramaOrcamentoFicha {
   id: string;
   codigo: string;
+  tipoPlano?: string;
   iniciativaEstrategica: string;
   ano2027: string;
   ano2028: string;
@@ -196,15 +197,27 @@ export interface CronogramaOrcamentoFicha {
   ano2030: string;
   orcamento2027: number;
   orcamento2028: number;
-  orcamento2029_30: number;
+  orcamento2029?: number;
+  orcamento2030?: number;
+  orcamento2029_30?: number;
   total: number;
 }
 
 export interface RiscoMitigadoFicha {
   id: string;
+  codigo?: string;
   fatorCritico: string;
+  observacaoRisco?: string;
+  probabilidade?: string;
+  impacto?: string;
   impactoPotencial: string;
   providenciaMitigadora: string;
+  responsavel?: string;
+}
+
+export interface BlocoNotaFicha {
+  titulo: string;
+  itens: string[];
 }
 
 export interface FichaTecnicaObjetivo {
@@ -212,6 +225,7 @@ export interface FichaTecnicaObjetivo {
   codigoObjetivo: string;
   nomeObjetivo: string;
   enunciado: string;
+  desdobramento?: string;
   perspectivaBsc: PerspectivaBSCType;
   unidadeResponsavelLider: string;
   unidadesParceiras: string;
@@ -230,6 +244,7 @@ export interface FichaTecnicaObjetivo {
     ritosInstitucionais: string[];
   };
   analiseRiscos: RiscoMitigadoFicha[];
+  premissasNotas?: BlocoNotaFicha[];
   fundamentacaoTecnica: string;
   assinaturaResponsavel: string;
 }

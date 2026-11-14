@@ -3,17 +3,13 @@ import {
   ObjetivoEstrategico, 
   IndicadorKPI, 
   PlanoAcao5W2H, 
-  ProcessoFinalistico, 
-  UnidadeOrganizacional, 
   UsuarioAutenticado,
   InsightEstrategicoIA,
   SiglaUnidade
 } from './types/strategic';
 import { 
-  UNIDADES_ORGANIZACIONAIS, 
-  PROCESSOS_FINALISTICOS, 
-  OBJETIVOS_ESTRATEGICOS, 
   INDICADORES_KPIS, 
+  OBJETIVOS_ESTRATEGICOS, 
   PLANOS_ACAO,
   USUARIOS_DEMO,
   INSIGHT_INICIAL_ESTRATEGICO
@@ -24,12 +20,11 @@ import { FooterInstitutional } from './components/layout/FooterInstitutional';
 import { ZebraSection } from './components/layout/ZebraSection';
 
 import { HeroProposito } from './components/sections/HeroProposito';
-import { CadeiaValor3D } from './components/sections/CadeiaValor3D';
 import { MapaEstrategicoBSC } from './components/sections/MapaEstrategicoBSC';
 import { FaixaMetricasEstrategicas } from './components/sections/FaixaMetricasEstrategicas';
+import { MapaRondoniaOpenRequest } from './components/modals/MapaRondoniaModal';
 import { FichasTecnicasObjetivosBSC } from './components/sections/FichasTecnicasObjetivosBSC';
 import { KpiDashboard } from './components/sections/KpiDashboard';
-import { PlanosAcaoUnidade } from './components/sections/PlanosAcaoUnidade';
 import { PainelGeminiAI } from './components/sections/PainelGeminiAI';
 import { ArquiteturaEspecificacoes } from './components/sections/ArquiteturaEspecificacoes';
 
@@ -37,14 +32,11 @@ import { ObjetivoPopoverModal } from './components/modals/ObjetivoPopoverModal';
 import { AuthModal } from './components/modals/AuthModal';
 import { CmsActionModal } from './components/modals/CmsActionModal';
 import { KpiEditModal } from './components/modals/KpiEditModal';
-import { ProcessoCmsModal } from './components/modals/ProcessoCmsModal';
 
 export default function App() {
   const [objetivos, setObjetivos] = useState<ObjetivoEstrategico[]>(OBJETIVOS_ESTRATEGICOS);
   const [kpis, setKpis] = useState<IndicadorKPI[]>(INDICADORES_KPIS);
   const [planos, setPlanos] = useState<PlanoAcao5W2H[]>(PLANOS_ACAO);
-  const [processos, setProcessos] = useState<ProcessoFinalistico[]>(PROCESSOS_FINALISTICOS);
-  const [unidades] = useState<UnidadeOrganizacional[]>(UNIDADES_ORGANIZACIONAIS);
 
   // Auth User: Default to Dr. Emerson Lira (Superintendente) for immediate CMS testing
   const [usuarioAtivo, setUsuarioAtivo] = useState<UsuarioAutenticado | null>(USUARIOS_DEMO[0]);
@@ -56,10 +48,7 @@ export default function App() {
   const [isNewPlanoModalOpen, setIsNewPlanoModalOpen] = useState<boolean>(false);
   const [newPlanoUnidade, setNewPlanoUnidade] = useState<SiglaUnidade>('DETEC');
   const [editingKpi, setEditingKpi] = useState<IndicadorKPI | null>(null);
-
-  // Cadeia de Valor CMS Modal state
-  const [editingProcesso, setEditingProcesso] = useState<ProcessoFinalistico | null>(null);
-  const [isProcessoModalOpen, setIsProcessoModalOpen] = useState<boolean>(false);
+  const [consolidadoRequest, setConsolidadoRequest] = useState<MapaRondoniaOpenRequest | null>(null);
 
   // AI Insights State - Initialized with baseline diagnostic
   const [aiInsight, setAiInsight] = useState<InsightEstrategicoIA | null>(INSIGHT_INICIAL_ESTRATEGICO);
@@ -73,7 +62,6 @@ export default function App() {
         if (data.objetivos) setObjetivos(data.objetivos);
         if (data.kpis) setKpis(data.kpis);
         if (data.planosAcao) setPlanos(data.planosAcao);
-        if (data.processosFinalisticos) setProcessos(data.processosFinalisticos);
       })
       .catch(err => {
         console.warn('Usando dados locais sincronizados:', err.message);
@@ -100,83 +88,9 @@ export default function App() {
     }
   };
 
-  // CMS Handlers: Cadeia de Valor Processos Finalísticos CRUD
-  const handleSaveProcesso = async (processoData: Partial<ProcessoFinalistico>) => {
-    if (processoData.id) {
-      // Update
-      try {
-        const res = await fetch(`/api/cadeia-valor/processos/${processoData.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(processoData)
-        });
-        const data = await res.json();
-        if (data.processo) {
-          setProcessos(prev => prev.map(p => p.id === data.processo.id ? data.processo : p));
-        }
-      } catch (e) {
-        setProcessos(prev => prev.map(p => p.id === processoData.id ? { ...p, ...processoData } as ProcessoFinalistico : p));
-      }
-    } else {
-      // Create
-      try {
-        const res = await fetch('/api/cadeia-valor/processos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(processoData)
-        });
-        const data = await res.json();
-        if (data.processo) {
-          setProcessos(prev => [...prev, data.processo]);
-        }
-      } catch (e) {
-        const isSuporte = processoData.categoria === 'GESTAO_SUPORTE';
-        const localNew: ProcessoFinalistico = {
-          id: `proc-${Date.now()}`,
-          codigo: processoData.codigo || (isSuporte ? `PG-0${processos.filter(p => p.categoria === 'GESTAO_SUPORTE').length + 1}` : `PF-0${processos.filter(p => p.categoria !== 'GESTAO_SUPORTE').length + 1}`),
-          sigla: processoData.sigla || 'NOVO',
-          categoria: processoData.categoria || 'FINALISTICO',
-          nome: processoData.nome || 'Novo Processo',
-          descricao: processoData.descricao || '',
-          publicoAlvo: processoData.publicoAlvo || '',
-          missaoDoProcesso: processoData.missaoDoProcesso || '',
-          atividadesChave: processoData.atividadesChave || [],
-          metasGerais: processoData.metasGerais || [],
-          indicadoresChave: processoData.indicadoresChave || [],
-          icone: processoData.icone || 'Award'
-        };
-        setProcessos(prev => [...prev, localNew]);
-      }
-    }
-  };
-
-  const handleDeleteProcesso = async (id: string) => {
-    try {
-      await fetch(`/api/cadeia-valor/processos/${id}`, { method: 'DELETE' });
-    } catch (e) {
-      console.warn('Removido localmente');
-    }
-    setProcessos(prev => prev.filter(p => p.id !== id));
-  };
-
-  const handleResetProcessos = async () => {
-    try {
-      const res = await fetch('/api/cadeia-valor/reset', { method: 'POST' });
-      const data = await res.json();
-      if (data.processos) {
-        setProcessos(data.processos);
-        return;
-      }
-    } catch (e) {
-      // fallback
-    }
-    setProcessos(PROCESSOS_FINALISTICOS);
-  };
-
-  // CMS Handlers: Action Plans CRUD
+  // CMS Handlers: Action Plans CRUD (used by CmsActionModal)
   const handleSavePlano = async (planoData: Partial<PlanoAcao5W2H>) => {
     if (planoData.id) {
-      // Update
       try {
         const res = await fetch(`/api/action-plans/${planoData.id}`, {
           method: 'PUT',
@@ -191,7 +105,6 @@ export default function App() {
         setPlanos(prev => prev.map(p => p.id === planoData.id ? { ...p, ...planoData } as PlanoAcao5W2H : p));
       }
     } else {
-      // Create
       try {
         const res = await fetch('/api/action-plans', {
           method: 'POST',
@@ -226,15 +139,6 @@ export default function App() {
         setPlanos(prev => [localNew, ...prev]);
       }
     }
-  };
-
-  const handleDeletePlano = async (id: string) => {
-    try {
-      await fetch(`/api/action-plans/${id}`, { method: 'DELETE' });
-    } catch (e) {
-      console.warn('Removido localmente');
-    }
-    setPlanos(prev => prev.filter(p => p.id !== id));
   };
 
   // CMS Handler: KPI Update
@@ -294,6 +198,9 @@ export default function App() {
           onOpenGeminiClick={() => scrollToSection('inteligencia-ia')}
         />
 
+        {/* FAIXA DE IMPACTO ESTRATÉGICO & MÉTRICAS (Impacto Institucional Comprovado) */}
+        <FaixaMetricasEstrategicas externalOpenRequest={consolidadoRequest} />
+
         {/* CHAPTER 2: Mapa Estratégico Visual Interativo BSC (Fundo Verde Suave Institucional) */}
         <ZebraSection id="mapa-bsc" variant="tint">
           <MapaEstrategicoBSC
@@ -301,57 +208,15 @@ export default function App() {
             kpis={kpis}
             selectedObjetivoId={selectedObjetivo?.id || null}
             onSelectObjetivo={(obj) => setSelectedObjetivo(obj)}
+            onOpenConsolidado2030={() =>
+              setConsolidadoRequest({ ano: '2030', focusResumo: true, nonce: Date.now() })
+            }
           />
         </ZebraSection>
-
-        {/* FAIXA DE IMPACTO ESTRATÉGICO & MÉTRICAS (Impacto Institucional Comprovado) */}
-        <FaixaMetricasEstrategicas />
 
         {/* ESTRUTURA EDITÁVEL: Fichas Técnicas & Planos de Ação por Objetivo Estratégico do BSC */}
         <ZebraSection id="fichas-tecnicas-objetivos" variant="gray">
           <FichasTecnicasObjetivosBSC usuarioAtivo={usuarioAtivo} />
-        </ZebraSection>
-
-        {/* CHAPTER 3: Planos de Ação por Unidade do Organograma (5W2H) (Organograma & Governança SENAR-AR/RO) */}
-        <ZebraSection id="planos-unidades" variant="white">
-          <PlanosAcaoUnidade
-            planos={planos}
-            unidades={unidades}
-            objetivos={objetivos}
-            usuarioAtivo={usuarioAtivo}
-            onOpenNovoPlano={(sigla) => {
-              if (sigla) setNewPlanoUnidade(sigla);
-              setEditingPlano(null);
-              setIsNewPlanoModalOpen(true);
-            }}
-            onEditPlano={(plano) => {
-              setEditingPlano(plano);
-              setIsNewPlanoModalOpen(true);
-            }}
-            onDeletePlano={handleDeletePlano}
-          />
-        </ZebraSection>
-
-        {/* CHAPTER 4: Cadeia de Valor: Processos Finalísticos & Suporte Operacional */}
-        <ZebraSection id="cadeia-valor" variant="tint">
-          <CadeiaValor3D
-            processos={processos}
-            usuarioAtivo={usuarioAtivo}
-            onSelectProcesso={(proc) => {
-              // Highlight related objective in BSC map
-              const relatedObj = objetivos.find(o => o.processoFinalisticoId === proc.id);
-              if (relatedObj) setSelectedObjetivo(relatedObj);
-            }}
-            onEditProcesso={(proc) => {
-              setEditingProcesso(proc);
-              setIsProcessoModalOpen(true);
-            }}
-            onNewProcesso={() => {
-              setEditingProcesso(null);
-              setIsProcessoModalOpen(true);
-            }}
-            onResetProcessos={handleResetProcessos}
-          />
         </ZebraSection>
 
         {/* CHAPTER 5: Indicadores de Desempenho / KPIs */}
@@ -388,7 +253,7 @@ export default function App() {
         kpis={kpis}
         planos={planos}
         onClose={() => setSelectedObjetivo(null)}
-        onNavigateToPlanos={() => scrollToSection('planos-unidades')}
+        onNavigateToPlanos={() => scrollToSection('fichas-tecnicas-objetivos')}
       />
 
       {/* Auth Modal: RBAC Role Switching */}
@@ -409,18 +274,6 @@ export default function App() {
         initialPlano={editingPlano}
         initialUnidade={newPlanoUnidade}
         onSavePlano={handleSavePlano}
-      />
-
-      {/* CMS Modal: Create or Edit Value Chain Finalistic Process */}
-      <ProcessoCmsModal
-        isOpen={isProcessoModalOpen}
-        onClose={() => {
-          setIsProcessoModalOpen(false);
-          setEditingProcesso(null);
-        }}
-        processo={editingProcesso}
-        onSave={handleSaveProcesso}
-        onDelete={handleDeleteProcesso}
       />
 
       {/* KPI Edit Modal: Quick Reporting */}

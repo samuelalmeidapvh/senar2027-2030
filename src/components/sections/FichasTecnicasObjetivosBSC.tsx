@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FichaTecnicaObjetivo, 
   IniciativaEstrategicaFicha, 
   IndicadorMetaFicha, 
   CronogramaOrcamentoFicha, 
   RiscoMitigadoFicha, 
+  BlocoNotaFicha,
   PerspectivaBSCType,
   UsuarioAutenticado
 } from '../../types/strategic';
@@ -31,6 +32,7 @@ import {
   ExternalLink,
   Layers,
   ArrowRight,
+  ArrowUp,
   TrendingUp,
   Download
 } from 'lucide-react';
@@ -39,7 +41,7 @@ interface FichasTecnicasProps {
   usuarioAtivo: UsuarioAutenticado | null;
 }
 
-const STORAGE_KEY = 'senar_fichas_tecnicas_objetivos_v2';
+const STORAGE_KEY = 'senar_fichas_tecnicas_objetivos_v3';
 
 export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usuarioAtivo }) => {
   // Load from localStorage or fallback to official initial data
@@ -58,8 +60,16 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
 
   const [selectedPerspectiva, setSelectedPerspectiva] = useState<string>('TODAS');
   const [selectedFichaId, setSelectedFichaId] = useState<string>(() => {
-    return fichas.find(f => f.codigoObjetivo === '04')?.id || fichas[0]?.id || '';
+    return (
+      fichas.find(f => f.id === 'ficha-oe-01-detec-fpr')?.id ||
+      fichas.find(f => f.codigoObjetivo === '04')?.id ||
+      fichas[0]?.id ||
+      ''
+    );
   });
+
+  const sectionTopRef = useRef<HTMLDivElement>(null);
+  const fichaDocumentRef = useRef<HTMLDivElement>(null);
 
   // Modal States
   const [isEditHeaderOpen, setIsEditHeaderOpen] = useState(false);
@@ -77,6 +87,8 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
 
   const [isEditGovernancaOpen, setIsEditGovernancaOpen] = useState(false);
   const [isEditDiretrizesOpen, setIsEditDiretrizesOpen] = useState(false);
+  const [isEditNotasOpen, setIsEditNotasOpen] = useState(false);
+  const [editingNotaIdx, setEditingNotaIdx] = useState<number | null>(null);
   const [isNovaFichaModalOpen, setIsNovaFichaModalOpen] = useState(false);
 
   // Auto-save to localStorage
@@ -97,6 +109,27 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
     return f.perspectivaBsc === selectedPerspectiva;
   });
 
+  const handleSelectPerspectiva = (persp: string) => {
+    setSelectedPerspectiva(persp);
+    if (persp !== 'TODAS') {
+      const matching = fichas.filter(f => f.perspectivaBsc === persp);
+      if (matching.length > 0 && !matching.some(m => m.id === selectedFichaId)) {
+        setSelectedFichaId(matching[0].id);
+      }
+    }
+  };
+
+  const handleSelectFichaAndScroll = (fichaId: string) => {
+    setSelectedFichaId(fichaId);
+    requestAnimationFrame(() => {
+      fichaDocumentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const scrollToPlanosBsc = () => {
+    sectionTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   // Safe check if activeFicha exists
   if (!activeFicha) {
     return (
@@ -115,15 +148,34 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
     );
   }
 
+  // Helpers for annual 2029 and 2030 budgets (backward-compatible with orcamento2029_30)
+  const getOrc2029 = (curr: CronogramaOrcamentoFicha) =>
+    curr.orcamento2029 !== undefined
+      ? Number(curr.orcamento2029) || 0
+      : (Number(curr.orcamento2029_30) || 0) / 2;
+
+  const getOrc2030 = (curr: CronogramaOrcamentoFicha) =>
+    curr.orcamento2030 !== undefined
+      ? Number(curr.orcamento2030) || 0
+      : (Number(curr.orcamento2029_30) || 0) / 2;
+
   // Calculate totals for Cronograma & Orçamento
   const totalOrcamento2027 = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.orcamento2027) || 0), 0);
   const totalOrcamento2028 = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.orcamento2028) || 0), 0);
-  const totalOrcamento2029_30 = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.orcamento2029_30) || 0), 0);
+  const totalOrcamento2029 = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + getOrc2029(curr), 0);
+  const totalOrcamento2030 = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + getOrc2030(curr), 0);
   const totalGeralOrcamento = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.total) || 0), 0);
+  const hasTipoPlanoColumn = activeFicha.cronogramaOrcamento.some(c => Boolean(c.tipoPlano));
 
-  // Format currency
+  // Format currency (supports decimals for DETEC plans while keeping round numbers clean)
   const formatMoney = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
+    const hasCents = Math.abs(val - Math.round(val)) > 0.001;
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: hasCents ? 2 : 0,
+      maximumFractionDigits: 2
+    }).format(val);
   };
 
   // Helper to update current active ficha
@@ -177,8 +229,20 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
 
   // Handlers for Cronograma
   const handleSaveCronograma = (cron: CronogramaOrcamentoFicha) => {
-    const totalCalc = (Number(cron.orcamento2027) || 0) + (Number(cron.orcamento2028) || 0) + (Number(cron.orcamento2029_30) || 0);
-    const cronComTotal = { ...cron, total: totalCalc };
+    const v2027 = Number(cron.orcamento2027) || 0;
+    const v2028 = Number(cron.orcamento2028) || 0;
+    const v2029 = getOrc2029(cron);
+    const v2030 = getOrc2030(cron);
+    const totalCalc = Number((v2027 + v2028 + v2029 + v2030).toFixed(2));
+    const cronComTotal: CronogramaOrcamentoFicha = {
+      ...cron,
+      orcamento2027: v2027,
+      orcamento2028: v2028,
+      orcamento2029: v2029,
+      orcamento2030: v2030,
+      orcamento2029_30: v2029 + v2030,
+      total: totalCalc
+    };
     
     updateActiveFicha(f => {
       const exists = f.cronogramaOrcamento.some(c => c.id === cron.id);
@@ -222,11 +286,29 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
     }
   };
 
+  const handleDeleteFicha = (id: string) => {
+    if (fichas.length <= 1) return;
+    if (confirm(`Deseja excluir a Ficha Técnica "${activeFicha.codigoObjetivo} ${activeFicha.nomeObjetivo}"?`)) {
+      const remaining = fichas.filter(f => f.id !== id);
+      setFichas(remaining);
+      setSelectedFichaId(remaining[0]?.id || '');
+    }
+  };
+
+  const handleDeleteNota = (idx: number) => {
+    if (confirm('Deseja excluir este bloco de premissas/notas complementares?')) {
+      updateActiveFicha(f => ({
+        ...f,
+        premissasNotas: (f.premissasNotas || []).filter((_, i) => i !== idx)
+      }));
+    }
+  };
+
   // Reset to original SENAR data
   const handleResetToDefault = () => {
     if (confirm('Deseja restaurar todas as Fichas Técnicas para os dados originais oficiais do Planejamento 2027–2030 do SENAR-AR/RO? As alterações salvas serão substituídas.')) {
       setFichas(FICHAS_TECNICAS_INICIAIS);
-      setSelectedFichaId(FICHAS_TECNICAS_INICIAIS[0].id);
+      setSelectedFichaId(FICHAS_TECNICAS_INICIAIS.find(f => f.id === 'ficha-oe-01-detec-fpr')?.id || FICHAS_TECNICAS_INICIAIS[0].id);
       localStorage.removeItem(STORAGE_KEY);
     }
   };
@@ -237,7 +319,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
   };
 
   return (
-    <div id="fichas-tecnicas-objetivos" className="w-full">
+    <div id="fichas-tecnicas-objetivos" ref={sectionTopRef} className="w-full scroll-mt-20">
       
       {/* SECTION HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-8 border-b border-slate-200">
@@ -297,7 +379,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
             <span>Perspectiva BSC:</span>
           </span>
           <button
-            onClick={() => setSelectedPerspectiva('TODAS')}
+            onClick={() => handleSelectPerspectiva('TODAS')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               selectedPerspectiva === 'TODAS'
                 ? 'bg-slate-900 text-white shadow-xs'
@@ -309,7 +391,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
           
           {/* 1. Perspectiva Sociedade */}
           <button
-            onClick={() => setSelectedPerspectiva('SOCIEDADE')}
+            onClick={() => handleSelectPerspectiva('SOCIEDADE')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               selectedPerspectiva === 'SOCIEDADE'
                 ? 'bg-teal-700 text-white shadow-xs'
@@ -325,7 +407,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
 
           {/* 2. Perspectiva Clientes */}
           <button
-            onClick={() => setSelectedPerspectiva('CLIENTES')}
+            onClick={() => handleSelectPerspectiva('CLIENTES')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               selectedPerspectiva === 'CLIENTES'
                 ? 'bg-sky-700 text-white shadow-xs'
@@ -341,7 +423,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
 
           {/* 3. Perspectiva Processos Internos */}
           <button
-            onClick={() => setSelectedPerspectiva('PROCESSOS_INTERNOS')}
+            onClick={() => handleSelectPerspectiva('PROCESSOS_INTERNOS')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               selectedPerspectiva === 'PROCESSOS_INTERNOS'
                 ? 'bg-[#006837] text-white shadow-xs'
@@ -357,7 +439,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
 
           {/* 4. Perspectiva Aprendizado e Crescimento */}
           <button
-            onClick={() => setSelectedPerspectiva('APRENDIZADO_CRESCIMENTO')}
+            onClick={() => handleSelectPerspectiva('APRENDIZADO_CRESCIMENTO')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               selectedPerspectiva === 'APRENDIZADO_CRESCIMENTO'
                 ? 'bg-indigo-700 text-white shadow-xs'
@@ -385,7 +467,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
           return (
             <button
               key={ficha.id}
-              onClick={() => setSelectedFichaId(ficha.id)}
+              onClick={() => handleSelectFichaAndScroll(ficha.id)}
               className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
                 isSelected
                   ? 'bg-white border-[#006837] ring-2 ring-[#006837]/25 shadow-md -translate-y-1'
@@ -432,7 +514,10 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
       {/* ========================================================================= */}
       {/* OFFICIAL EXECUTIVE DOCUMENT VIEW (MIRRORING ATTACHED PDF STRUCTURE) */}
       {/* ========================================================================= */}
-      <div className="mt-8 bg-white rounded-3xl border border-slate-300 shadow-xl overflow-hidden print:border-none print:shadow-none">
+      <div
+        ref={fichaDocumentRef}
+        className="mt-8 scroll-mt-20 bg-white rounded-3xl border border-slate-300 shadow-xl overflow-hidden print:border-none print:shadow-none"
+      >
         
         {/* DOCUMENT TOP BAR (INSTITUTIONAL STRIP) */}
         <div className="bg-gradient-to-r from-emerald-950 via-[#004d26] to-[#006837] text-white p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 border-b border-emerald-800">
@@ -459,12 +544,31 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
 
           <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
             <button
+              type="button"
+              onClick={scrollToPlanosBsc}
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-emerald-400/20 hover:bg-emerald-400/35 text-emerald-50 border border-emerald-300/40 backdrop-blur-xs flex items-center gap-1.5 cursor-pointer transition-all print:hidden"
+              title="Retornar ao Plano de Ação por Objetivo Estratégico do BSC"
+            >
+              <ArrowUp className="w-3.5 h-3.5" />
+              <span>Voltar ao Plano de Ação BSC</span>
+            </button>
+            <button
               onClick={() => setIsEditHeaderOpen(true)}
               className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/30 backdrop-blur-xs flex items-center gap-1.5 cursor-pointer transition-all"
             >
               <Edit3 className="w-3.5 h-3.5" />
               <span>Editar Cabeçalho</span>
             </button>
+            {fichas.length > 1 && (
+              <button
+                onClick={() => handleDeleteFicha(activeFicha.id)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-rose-500/20 hover:bg-rose-500/35 text-rose-100 border border-rose-300/30 backdrop-blur-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                title="Excluir esta Ficha Técnica"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Excluir Ficha</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -487,6 +591,14 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
             <p className="text-base sm:text-lg font-semibold text-emerald-950 mt-2 italic border-l-4 border-[#006837] pl-3.5 leading-snug">
               “{activeFicha.enunciado.replace(/^"|"$/g, '')}”
             </p>
+            {activeFicha.desdobramento && (
+              <div className="mt-3 pt-3 border-t border-emerald-200/80 text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <strong className="text-[#006837] font-extrabold uppercase tracking-wide text-[11px] block mb-0.5">
+                  Desdobramento Foco da Unidade:
+                </strong>
+                <span>{activeFicha.desdobramento}</span>
+              </div>
+            )}
           </div>
 
           {/* Institutional Identification Grid */}
@@ -817,6 +929,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                   setEditingCronograma({
                     id: `cron-${Date.now()}`,
                     codigo: `${activeFicha.codigoObjetivo}.${activeFicha.cronogramaOrcamento.length + 1}`,
+                    tipoPlano: '',
                     iniciativaEstrategica: '',
                     ano2027: 'Q1-Q4',
                     ano2028: 'Q1-Q4',
@@ -824,7 +937,8 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                     ano2030: 'Q1-Q4',
                     orcamento2027: 0,
                     orcamento2028: 0,
-                    orcamento2029_30: 0,
+                    orcamento2029: 0,
+                    orcamento2030: 0,
                     total: 0
                   });
                   setIsEditCronogramaOpen(true);
@@ -841,15 +955,19 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                 <thead>
                   <tr className="bg-gradient-to-r from-emerald-900 to-[#006837] text-white font-mono text-[11px] uppercase tracking-wider">
                     <th className="p-3.5 w-16 text-center">ID</th>
-                    <th className="p-3.5 min-w-[220px]">Iniciativa Estratégica</th>
-                    <th className="p-3.5 text-center min-w-[65px]">2027</th>
-                    <th className="p-3.5 text-center min-w-[65px]">2028</th>
-                    <th className="p-3.5 text-center min-w-[65px]">2029</th>
-                    <th className="p-3.5 text-center min-w-[65px]">2030</th>
-                    <th className="p-3.5 min-w-[100px] text-right">Orç. 2027</th>
-                    <th className="p-3.5 min-w-[100px] text-right">Orç. 2028</th>
-                    <th className="p-3.5 min-w-[100px] text-right">Orç. 2029-30</th>
-                    <th className="p-3.5 min-w-[110px] text-right bg-emerald-950/40 font-bold">Total (R$)</th>
+                    {hasTipoPlanoColumn && (
+                      <th className="p-3.5 w-24 text-center">Tipo Plano</th>
+                    )}
+                    <th className="p-3.5 min-w-[200px]">Solução / Iniciativa</th>
+                    <th className="p-3.5 text-center min-w-[100px]">Exec. 2027</th>
+                    <th className="p-3.5 text-center min-w-[100px]">Exec. 2028</th>
+                    <th className="p-3.5 text-center min-w-[100px]">Exec. 2029</th>
+                    <th className="p-3.5 text-center min-w-[100px]">Exec. 2030</th>
+                    <th className="p-3.5 min-w-[110px] text-right">Valor 2027</th>
+                    <th className="p-3.5 min-w-[110px] text-right">Valor 2028</th>
+                    <th className="p-3.5 min-w-[110px] text-right">Valor 2029</th>
+                    <th className="p-3.5 min-w-[110px] text-right">Valor 2030</th>
+                    <th className="p-3.5 min-w-[125px] text-right bg-emerald-950/40 font-bold">Total (R$)</th>
                     <th className="p-3.5 w-20 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -859,24 +977,36 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                       <td className="p-3.5 font-mono font-bold text-center text-[#006837] bg-slate-50/60">
                         {cron.codigo}
                       </td>
+                      {hasTipoPlanoColumn && (
+                        <td className="p-3.5 text-center font-mono font-bold text-emerald-900">
+                          {cron.tipoPlano ? (
+                            <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-[11px]">
+                              {cron.tipoPlano}
+                            </span>
+                          ) : '—'}
+                        </td>
+                      )}
                       <td className="p-3.5 font-bold text-slate-900">
                         {cron.iniciativaEstrategica}
                       </td>
-                      <td className="p-3.5 text-center font-mono text-slate-600">{cron.ano2027}</td>
-                      <td className="p-3.5 text-center font-mono text-slate-600">{cron.ano2028}</td>
-                      <td className="p-3.5 text-center font-mono text-slate-600">{cron.ano2029}</td>
-                      <td className="p-3.5 text-center font-mono text-slate-600">{cron.ano2030}</td>
-                      <td className="p-3.5 text-right font-mono text-slate-700">
-                        {formatMoney(cron.orcamento2027)}
+                      <td className="p-3.5 text-center text-[11px] text-slate-600 leading-snug">{cron.ano2027}</td>
+                      <td className="p-3.5 text-center text-[11px] text-slate-600 leading-snug">{cron.ano2028}</td>
+                      <td className="p-3.5 text-center text-[11px] text-slate-600 leading-snug">{cron.ano2029}</td>
+                      <td className="p-3.5 text-center text-[11px] text-slate-600 leading-snug">{cron.ano2030}</td>
+                      <td className="p-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
+                        {formatMoney(Number(cron.orcamento2027) || 0)}
                       </td>
-                      <td className="p-3.5 text-right font-mono text-slate-700">
-                        {formatMoney(cron.orcamento2028)}
+                      <td className="p-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
+                        {formatMoney(Number(cron.orcamento2028) || 0)}
                       </td>
-                      <td className="p-3.5 text-right font-mono text-slate-700">
-                        {formatMoney(cron.orcamento2029_30)}
+                      <td className="p-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
+                        {formatMoney(getOrc2029(cron))}
                       </td>
-                      <td className="p-3.5 text-right font-mono font-bold text-emerald-950 bg-emerald-50/50">
-                        {formatMoney(cron.total)}
+                      <td className="p-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
+                        {formatMoney(getOrc2030(cron))}
+                      </td>
+                      <td className="p-3.5 text-right font-mono font-bold text-emerald-950 bg-emerald-50/50 whitespace-nowrap">
+                        {formatMoney(Number(cron.total) || 0)}
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
@@ -903,20 +1033,24 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                   {/* Total Consolidation Row */}
                   <tr className="bg-emerald-50/90 font-bold text-slate-900 border-t-2 border-emerald-600">
                     <td className="p-3.5 text-center font-mono text-emerald-900">TOTAL</td>
+                    {hasTipoPlanoColumn && <td className="p-3.5 text-center text-slate-400">—</td>}
                     <td className="p-3.5 uppercase tracking-wide text-emerald-950">
                       Investimento Estratégico Consolidado ({activeFicha.codigoObjetivo})
                     </td>
                     <td colSpan={4} className="p-3.5 text-center text-slate-400">—</td>
-                    <td className="p-3.5 text-right font-mono text-emerald-900">
+                    <td className="p-3.5 text-right font-mono text-emerald-900 whitespace-nowrap">
                       {formatMoney(totalOrcamento2027)}
                     </td>
-                    <td className="p-3.5 text-right font-mono text-emerald-900">
+                    <td className="p-3.5 text-right font-mono text-emerald-900 whitespace-nowrap">
                       {formatMoney(totalOrcamento2028)}
                     </td>
-                    <td className="p-3.5 text-right font-mono text-emerald-900">
-                      {formatMoney(totalOrcamento2029_30)}
+                    <td className="p-3.5 text-right font-mono text-emerald-900 whitespace-nowrap">
+                      {formatMoney(totalOrcamento2029)}
                     </td>
-                    <td className="p-3.5 text-right font-mono font-black text-emerald-950 bg-emerald-100/80">
+                    <td className="p-3.5 text-right font-mono text-emerald-900 whitespace-nowrap">
+                      {formatMoney(totalOrcamento2030)}
+                    </td>
+                    <td className="p-3.5 text-right font-mono font-black text-emerald-950 bg-emerald-100/80 whitespace-nowrap">
                       {formatMoney(totalGeralOrcamento)}
                     </td>
                     <td></td>
@@ -1018,21 +1152,38 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                   OBSERVAÇÕES, ANÁLISE DE RISCOS E PROVIDÊNCIAS MITIGADORAS
                 </h3>
               </div>
-              <button
-                onClick={() => {
-                  setEditingRisco({
-                    id: `risk-${Date.now()}`,
-                    fatorCritico: '',
-                    impactoPotencial: '',
-                    providenciaMitigadora: ''
-                  });
-                  setIsEditRiscoOpen(true);
-                }}
-                className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#006837] hover:bg-[#004d26] rounded-xl transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer self-start sm:self-center"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Adicionar Risco & Mitigação</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                <button
+                  onClick={() => {
+                    setEditingNotaIdx(null);
+                    setIsEditNotasOpen(true);
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold text-[#006837] hover:bg-emerald-50 border border-emerald-200 rounded-xl transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Nota / Providência</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingRisco({
+                      id: `risk-${Date.now()}`,
+                      codigo: '',
+                      fatorCritico: '',
+                      observacaoRisco: '',
+                      probabilidade: '',
+                      impacto: '',
+                      impactoPotencial: '',
+                      providenciaMitigadora: '',
+                      responsavel: ''
+                    });
+                    setIsEditRiscoOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#006837] hover:bg-[#004d26] rounded-xl transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Adicionar Risco & Mitigação</span>
+                </button>
+              </div>
             </div>
 
             {/* Risk Analysis Table */}
@@ -1040,26 +1191,59 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-gradient-to-r from-emerald-900 to-[#006837] text-white font-mono text-[11px] uppercase tracking-wider">
-                    <th className="p-3.5 min-w-[200px]">Fator Crítico / Risco Inerente</th>
-                    <th className="p-3.5 min-w-[240px]">Impacto Potencial na Gestão</th>
-                    <th className="p-3.5 min-w-[280px]">Providência Mitigadora Obrigatória</th>
+                    <th className="p-3.5 min-w-[220px]">Fator Crítico / Risco Inerente</th>
+                    <th className="p-3.5 min-w-[230px]">Impacto Potencial na Gestão</th>
+                    <th className="p-3.5 min-w-[270px]">Providência Mitigadora Obrigatória</th>
                     <th className="p-3.5 w-20 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white text-slate-700">
                   {activeFicha.analiseRiscos.map((risco) => (
-                    <tr key={risco.id} className="hover:bg-amber-50/30 transition-colors">
+                    <tr key={risco.id} className="hover:bg-amber-50/30 transition-colors align-top">
                       <td className="p-3.5 font-bold text-slate-900">
                         <div className="flex items-start gap-2">
                           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                          <span>{risco.fatorCritico}</span>
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {risco.codigo && (
+                                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-[#006837] border border-emerald-200">
+                                  {risco.codigo}
+                                </span>
+                              )}
+                              <span>{risco.fatorCritico}</span>
+                            </div>
+                            {(risco.probabilidade || risco.impacto) && (
+                              <div className="flex flex-wrap gap-1.5 font-mono text-[10px] font-semibold">
+                                {risco.probabilidade && (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">
+                                    Prob.: {risco.probabilidade}
+                                  </span>
+                                )}
+                                {risco.impacto && (
+                                  <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-900 border border-rose-200">
+                                    Imp.: {risco.impacto}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {risco.observacaoRisco && (
+                              <p className="font-normal text-slate-600 leading-relaxed text-[11px]">
+                                {risco.observacaoRisco}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="p-3.5 text-slate-600 leading-relaxed">
                         {risco.impactoPotencial}
                       </td>
-                      <td className="p-3.5 text-slate-800 leading-relaxed bg-emerald-50/20 font-medium">
-                        {risco.providenciaMitigadora}
+                      <td className="p-3.5 text-slate-800 leading-relaxed bg-emerald-50/20 font-medium space-y-1.5">
+                        <p>{risco.providenciaMitigadora}</p>
+                        {risco.responsavel && (
+                          <span className="inline-block font-mono text-[10px] font-bold text-[#006837] bg-white px-2 py-0.5 rounded border border-emerald-200">
+                            Resp.: {risco.responsavel}
+                          </span>
+                        )}
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
@@ -1086,6 +1270,48 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
               </table>
             </div>
 
+            {/* Premissas, Providências Imediatas e Anexos Complementares */}
+            {activeFicha.premissasNotas && activeFicha.premissasNotas.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {activeFicha.premissasNotas.map((bloco, idx) => (
+                  <div key={idx} className="p-5 bg-emerald-50/40 rounded-2xl border border-emerald-200 space-y-2.5 text-xs">
+                    <div className="flex items-start justify-between gap-2 border-b border-emerald-200/70 pb-2">
+                      <h4 className="font-black text-emerald-950 uppercase tracking-wide text-[11px]">
+                        {bloco.titulo}
+                      </h4>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => {
+                            setEditingNotaIdx(idx);
+                            setIsEditNotasOpen(true);
+                          }}
+                          className="p-1 text-slate-500 hover:text-[#006837] hover:bg-white rounded cursor-pointer"
+                          title="Editar bloco"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNota(idx)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded cursor-pointer"
+                          title="Excluir bloco"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <ul className="space-y-1.5 text-slate-700 leading-relaxed">
+                      {bloco.itens.map((item, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#006837] shrink-0 mt-0.5" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Technical Foundation & Institutional Alignment */}
             <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs leading-relaxed text-slate-700">
               <h4 className="font-bold text-slate-900 uppercase tracking-wide">
@@ -1098,7 +1324,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
             <div className="pt-6 border-t border-slate-200 flex flex-col items-center justify-center text-center">
               <div className="w-72 border-b border-slate-400 mb-2" />
               <p className="font-bold text-slate-900 text-xs sm:text-sm">
-                {activeFicha.responsavelPreenchimento}
+                {activeFicha.assinaturaResponsavel || activeFicha.responsavelPreenchimento}
               </p>
               <p className="text-xs text-slate-500">
                 {activeFicha.cargoResponsavel}
@@ -1106,6 +1332,15 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
               <span className="text-[10px] font-mono text-emerald-800 uppercase tracking-wider mt-1">
                 SENAR-AR/RO · Ciclo 2027–2030
               </span>
+
+              <button
+                type="button"
+                onClick={scrollToPlanosBsc}
+                className="mt-5 px-4 py-2 text-xs font-semibold rounded-xl bg-[#006837] hover:bg-[#004d26] text-white shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-all print:hidden"
+              >
+                <ArrowUp className="w-3.5 h-3.5" />
+                <span>Retornar para Planos de Ação por Objetivo Estratégico do BSC</span>
+              </button>
             </div>
 
           </section>
@@ -1137,13 +1372,15 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                 codigoObjetivo: formData.get('codigoObjetivo') as string,
                 nomeObjetivo: formData.get('nomeObjetivo') as string,
                 enunciado: formData.get('enunciado') as string,
+                desdobramento: (formData.get('desdobramento') as string) || undefined,
                 perspectivaBsc: formData.get('perspectivaBsc') as PerspectivaBSCType,
                 unidadeResponsavelLider: formData.get('unidadeResponsavelLider') as string,
                 unidadesParceiras: formData.get('unidadesParceiras') as string,
                 responsavelPreenchimento: formData.get('responsavelPreenchimento') as string,
                 cargoResponsavel: formData.get('cargoResponsavel') as string,
                 dataElaboracaoRevisao: formData.get('dataElaboracaoRevisao') as string,
-                fundamentacaoTecnica: formData.get('fundamentacaoTecnica') as string
+                fundamentacaoTecnica: formData.get('fundamentacaoTecnica') as string,
+                assinaturaResponsavel: (formData.get('assinaturaResponsavel') as string) || f.assinaturaResponsavel
               }));
               setIsEditHeaderOpen(false);
             }} className="space-y-4 mt-4 text-xs">
@@ -1174,6 +1411,11 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
               </div>
 
               <div>
+                <label className="font-bold text-slate-700 block mb-1">Desdobramento Foco da Unidade (Opcional)</label>
+                <textarea name="desdobramento" defaultValue={activeFicha.desdobramento || ''} rows={2} className="w-full p-2 border rounded-lg" />
+              </div>
+
+              <div>
                 <label className="font-bold text-slate-700 block mb-1">Unidade Responsável / Líder</label>
                 <input name="unidadeResponsavelLider" defaultValue={activeFicha.unidadeResponsavelLider} required className="w-full p-2 border rounded-lg" />
               </div>
@@ -1194,9 +1436,15 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                 </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Data Elaboração / Revisão</label>
-                <input name="dataElaboracaoRevisao" defaultValue={activeFicha.dataElaboracaoRevisao} required className="w-full p-2 border rounded-lg" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Data Elaboração / Revisão</label>
+                  <input name="dataElaboracaoRevisao" defaultValue={activeFicha.dataElaboracaoRevisao} required className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Assinatura Institucional</label>
+                  <input name="assinaturaResponsavel" defaultValue={activeFicha.assinaturaResponsavel} className="w-full p-2 border rounded-lg" />
+                </div>
               </div>
 
               <div>
@@ -1365,7 +1613,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
       {/* MODAL 4: EDIT CRONOGRAMA & ORÇAMENTO */}
       {isEditCronogramaOpen && editingCronograma && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="font-bold text-base text-slate-900">
                 {editingCronograma.iniciativaEstrategica ? 'Editar Orçamento & Cronograma' : 'Nova Linha de Orçamento'}
@@ -1381,6 +1629,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
               handleSaveCronograma({
                 id: editingCronograma.id,
                 codigo: formData.get('codigo') as string,
+                tipoPlano: (formData.get('tipoPlano') as string) || undefined,
                 iniciativaEstrategica: formData.get('iniciativaEstrategica') as string,
                 ano2027: formData.get('ano2027') as string,
                 ano2028: formData.get('ano2028') as string,
@@ -1388,52 +1637,61 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                 ano2030: formData.get('ano2030') as string,
                 orcamento2027: Number(formData.get('orcamento2027')) || 0,
                 orcamento2028: Number(formData.get('orcamento2028')) || 0,
-                orcamento2029_30: Number(formData.get('orcamento2029_30')) || 0,
-                total: 0 // Will be computed in handler
+                orcamento2029: Number(formData.get('orcamento2029')) || 0,
+                orcamento2030: Number(formData.get('orcamento2030')) || 0,
+                total: 0
               });
             }} className="space-y-3.5 mt-4 text-xs">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">ID</label>
                   <input name="codigo" defaultValue={editingCronograma.codigo} required className="w-full p-2 border rounded-lg" />
                 </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Tipo Plano (Opcional)</label>
+                  <input name="tipoPlano" defaultValue={editingCronograma.tipoPlano || ''} placeholder="Ex: FPR, EF" className="w-full p-2 border rounded-lg" />
+                </div>
                 <div className="col-span-2">
-                  <label className="font-bold text-slate-700 block mb-1">Iniciativa Estratégica</label>
+                  <label className="font-bold text-slate-700 block mb-1">Solução / Iniciativa Estratégica</label>
                   <input name="iniciativaEstrategica" defaultValue={editingCronograma.iniciativaEstrategica} required className="w-full p-2 border rounded-lg" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Período 2027</label>
+                  <label className="font-bold text-slate-700 block mb-1">Execução 2027</label>
                   <input name="ano2027" defaultValue={editingCronograma.ano2027} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Período 2028</label>
+                  <label className="font-bold text-slate-700 block mb-1">Execução 2028</label>
                   <input name="ano2028" defaultValue={editingCronograma.ano2028} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Período 2029</label>
+                  <label className="font-bold text-slate-700 block mb-1">Execução 2029</label>
                   <input name="ano2029" defaultValue={editingCronograma.ano2029} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Período 2030</label>
+                  <label className="font-bold text-slate-700 block mb-1">Execução 2030</label>
                   <input name="ano2030" defaultValue={editingCronograma.ano2030} required className="w-full p-2 border rounded-lg" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Orçamento 2027 (R$)</label>
-                  <input type="number" name="orcamento2027" defaultValue={editingCronograma.orcamento2027} required className="w-full p-2 border rounded-lg" />
+                  <label className="font-bold text-slate-700 block mb-1">Valor 2027 (R$)</label>
+                  <input type="number" step="0.01" name="orcamento2027" defaultValue={editingCronograma.orcamento2027} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Orçamento 2028 (R$)</label>
-                  <input type="number" name="orcamento2028" defaultValue={editingCronograma.orcamento2028} required className="w-full p-2 border rounded-lg" />
+                  <label className="font-bold text-slate-700 block mb-1">Valor 2028 (R$)</label>
+                  <input type="number" step="0.01" name="orcamento2028" defaultValue={editingCronograma.orcamento2028} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Orçamento 2029-30 (R$)</label>
-                  <input type="number" name="orcamento2029_30" defaultValue={editingCronograma.orcamento2029_30} required className="w-full p-2 border rounded-lg" />
+                  <label className="font-bold text-slate-700 block mb-1">Valor 2029 (R$)</label>
+                  <input type="number" step="0.01" name="orcamento2029" defaultValue={getOrc2029(editingCronograma)} required className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Valor 2030 (R$)</label>
+                  <input type="number" step="0.01" name="orcamento2030" defaultValue={getOrc2030(editingCronograma)} required className="w-full p-2 border rounded-lg" />
                 </div>
               </div>
 
@@ -1464,19 +1722,50 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
               const formData = new FormData(form);
               handleSaveRisco({
                 id: editingRisco.id,
+                codigo: (formData.get('codigo') as string) || undefined,
                 fatorCritico: formData.get('fatorCritico') as string,
+                observacaoRisco: (formData.get('observacaoRisco') as string) || undefined,
+                probabilidade: (formData.get('probabilidade') as string) || undefined,
+                impacto: (formData.get('impacto') as string) || undefined,
                 impactoPotencial: formData.get('impactoPotencial') as string,
-                providenciaMitigadora: formData.get('providenciaMitigadora') as string
+                providenciaMitigadora: formData.get('providenciaMitigadora') as string,
+                responsavel: (formData.get('responsavel') as string) || undefined
               });
             }} className="space-y-3.5 mt-4 text-xs">
+              <div className="grid grid-cols-4 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">ID (Opcional)</label>
+                  <input name="codigo" defaultValue={editingRisco.codigo || ''} placeholder="Ex: 06.2" className="w-full p-2 border rounded-lg" />
+                </div>
+                <div className="col-span-3">
+                  <label className="font-bold text-slate-700 block mb-1">Fator Crítico / Risco Inerente</label>
+                  <input name="fatorCritico" defaultValue={editingRisco.fatorCritico} required className="w-full p-2 border rounded-lg" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Probabilidade (Opcional)</label>
+                  <input name="probabilidade" defaultValue={editingRisco.probabilidade || ''} placeholder="Alta / Média" className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Impacto (Opcional)</label>
+                  <input name="impacto" defaultValue={editingRisco.impacto || ''} placeholder="Alto / Muito alto" className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Responsável (Opcional)</label>
+                  <input name="responsavel" defaultValue={editingRisco.responsavel || ''} placeholder="Ex: TI / DAF" className="w-full p-2 border rounded-lg" />
+                </div>
+              </div>
+
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Fator Crítico / Risco Inerente</label>
-                <input name="fatorCritico" defaultValue={editingRisco.fatorCritico} required className="w-full p-2 border rounded-lg" />
+                <label className="font-bold text-slate-700 block mb-1">Observações / Descrição do Risco (Opcional)</label>
+                <textarea name="observacaoRisco" defaultValue={editingRisco.observacaoRisco || ''} rows={2} className="w-full p-2 border rounded-lg" />
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Impacto Potencial na Gestão</label>
-                <textarea name="impactoPotencial" defaultValue={editingRisco.impactoPotencial} rows={3} required className="w-full p-2 border rounded-lg" />
+                <textarea name="impactoPotencial" defaultValue={editingRisco.impactoPotencial} rows={2} required className="w-full p-2 border rounded-lg" />
               </div>
 
               <div>
@@ -1670,6 +1959,8 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                     ano2030: 'Q1-Q4',
                     orcamento2027: 0,
                     orcamento2028: 25000,
+                    orcamento2029: 12500,
+                    orcamento2030: 12500,
                     orcamento2029_30: 25000,
                     total: 50000
                   }
@@ -1745,6 +2036,70 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <button type="button" onClick={() => setIsNovaFichaModalOpen(false)} className="px-4 py-2 border rounded-lg text-slate-600">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-[#006837] text-white rounded-lg font-bold">Criar Nova Ficha</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: EDITAR / INCLUIR PREMISSAS, PROVIDÊNCIAS OU ANEXOS */}
+      {isEditNotasOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="font-bold text-base text-slate-900">
+                {editingNotaIdx !== null ? 'Editar Nota / Providência / Anexo' : 'Adicionar Nota / Providência / Anexo'}
+              </h3>
+              <button onClick={() => setIsEditNotasOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.target as HTMLFormElement;
+              const formData = new FormData(form);
+              const titulo = (formData.get('titulo') as string).trim();
+              const itens = (formData.get('itens') as string)
+                .split('\n')
+                .map(s => s.trim())
+                .filter(Boolean);
+
+              const novoBloco: BlocoNotaFicha = { titulo, itens };
+              updateActiveFicha(f => {
+                const atuais = [...(f.premissasNotas || [])];
+                if (editingNotaIdx !== null && atuais[editingNotaIdx]) {
+                  atuais[editingNotaIdx] = novoBloco;
+                } else {
+                  atuais.push(novoBloco);
+                }
+                return { ...f, premissasNotas: atuais };
+              });
+              setIsEditNotasOpen(false);
+              setEditingNotaIdx(null);
+            }} className="space-y-3.5 mt-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Título do Bloco</label>
+                <input
+                  name="titulo"
+                  defaultValue={editingNotaIdx !== null ? activeFicha.premissasNotas?.[editingNotaIdx]?.titulo || '' : ''}
+                  placeholder="Ex: Premissas / Providências Imediatas / Anexos"
+                  required
+                  className="w-full p-2 border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Itens (um por linha)</label>
+                <textarea
+                  name="itens"
+                  defaultValue={editingNotaIdx !== null ? (activeFicha.premissasNotas?.[editingNotaIdx]?.itens || []).join('\n') : ''}
+                  rows={8}
+                  required
+                  className="w-full p-2 border rounded-lg"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button type="button" onClick={() => setIsEditNotasOpen(false)} className="px-4 py-2 border rounded-lg text-slate-600">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-[#006837] text-white rounded-lg font-bold">Salvar Bloco</button>
               </div>
             </form>
           </div>
