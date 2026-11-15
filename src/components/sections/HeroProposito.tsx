@@ -22,11 +22,20 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
         
         {/* Breadcrumb / Editorial kicker */}
         <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 tracking-wide uppercase mb-3">
-          <span>Sistema FAPERON / SENAR Rondônia</span>
+          <span>SISTEMA FAPERON - SENAR RONDÔNIA - SINDICATOS RURAIS</span>
           <span aria-hidden="true">·</span>
           <span>Ciclo Estratégico 2027–2030</span>
-          <span aria-hidden="true">·</span>
-          <span>Balanced Scorecard</span>
+        </div>
+
+        {/* Lema do Planejamento 2027–2030 (Em destaque e centralizado no lugar do antigo slogan) */}
+        <div className="max-w-3xl mx-auto mb-8 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-50 via-emerald-100/70 to-teal-50/70 border-2 border-emerald-400/80 shadow-md flex flex-col items-center justify-center text-center gap-2 hover:border-emerald-500 transition-colors">
+          <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-[#006837] text-white text-[11px] font-mono uppercase tracking-widest font-extrabold shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+            <span>Lema do Planejamento 2027–2030</span>
+          </div>
+          <p className="text-base sm:text-xl font-extrabold text-emerald-950 tracking-tight leading-snug text-balance">
+            “Conhecimento que transforma, campo que prospera.”
+          </p>
         </div>
 
         {/* 2-Column Split: Headline & Purpose on Left, High-Fidelity Imagery on Right */}
@@ -34,10 +43,6 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
           
           <div className="lg:col-span-7 flex flex-col justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100/90 text-[#006837] text-xs font-bold mb-3 tracking-wide">
-                <span>JUNTOS, FORTALECENDO O PRODUTOR RURAL DE RONDÔNIA</span>
-              </div>
-
               {/* Official Purpose Callout from Mapa Estratégico (Destaque Principal) */}
               <div className="w-[90%] mx-auto mt-1 px-6 py-8 sm:px-10 sm:py-10 rounded-2xl bg-gradient-to-br from-emerald-950 via-[#006837] to-emerald-700 text-white shadow-lg border border-emerald-600/50 relative overflow-hidden flex flex-col items-center justify-center text-center">
                 <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-emerald-400/15 blur-2xl pointer-events-none" />
@@ -85,26 +90,6 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
                   </p>
                 </div>
 
-              </div>
-
-              {/* Lema do Planejamento 2027–2030 */}
-              <div className="mt-3.5 p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-emerald-50 via-emerald-100/50 to-teal-50/60 border border-emerald-300/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 group hover:border-emerald-400 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-[#006837] text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <Sparkles className="w-4.5 h-4.5 text-emerald-200" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-widest font-extrabold text-[#006837] block leading-tight">
-                      Lema do Planejamento 2027–2030
-                    </span>
-                    <p className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight leading-snug mt-0.5">
-                      “Conhecimento que transforma, campo que prospera.”
-                    </p>
-                  </div>
-                </div>
-                <div className="inline-flex items-center self-start sm:self-center px-2.5 py-1 rounded-md bg-white border border-emerald-200/90 text-[11px] font-mono font-bold text-emerald-800 shrink-0 shadow-2xs">
-                  Ciclo 2027–2030
-                </div>
               </div>
 
               <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl">

@@ -39,13 +39,19 @@ import {
 
 interface FichasTecnicasProps {
   usuarioAtivo: UsuarioAutenticado | null;
+  fichasProp?: FichaTecnicaObjetivo[];
+  onChangeFichas?: React.Dispatch<React.SetStateAction<FichaTecnicaObjetivo[]>>;
 }
 
 const STORAGE_KEY = 'senar_fichas_tecnicas_objetivos_v3';
 
-export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usuarioAtivo }) => {
-  // Load from localStorage or fallback to official initial data
-  const [fichas, setFichas] = useState<FichaTecnicaObjetivo[]>(() => {
+export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
+  usuarioAtivo,
+  fichasProp,
+  onChangeFichas
+}) => {
+  // Load from localStorage or fallback to official initial data when uncontrolled
+  const [internalFichas, setInternalFichas] = useState<FichaTecnicaObjetivo[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -57,6 +63,9 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
     }
     return FICHAS_TECNICAS_INICIAIS;
   });
+
+  const fichas = fichasProp ?? internalFichas;
+  const setFichas = onChangeFichas ?? setInternalFichas;
 
   const [selectedPerspectiva, setSelectedPerspectiva] = useState<string>('TODAS');
   const [selectedFichaId, setSelectedFichaId] = useState<string>(() => {
@@ -91,14 +100,15 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
   const [editingNotaIdx, setEditingNotaIdx] = useState<number | null>(null);
   const [isNovaFichaModalOpen, setIsNovaFichaModalOpen] = useState(false);
 
-  // Auto-save to localStorage
+  // Auto-save to localStorage only when uncontrolled (parent handles persistence when controlled)
   useEffect(() => {
+    if (fichasProp !== undefined) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(fichas));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(internalFichas));
     } catch (e) {
       console.error('Erro ao salvar fichas no localStorage', e);
     }
-  }, [fichas]);
+  }, [internalFichas, fichasProp]);
 
   // Current active Ficha
   const activeFicha = fichas.find(f => f.id === selectedFichaId) || fichas[0];
@@ -845,10 +855,12 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                     <th className="p-3.5 min-w-[220px]">Indicador de Desempenho (KPI)</th>
                     <th className="p-3.5 min-w-[100px]">Unidade</th>
                     <th className="p-3.5 min-w-[110px] text-center bg-emerald-950/40">Linha Base (2026)</th>
-                    <th className="p-3.5 min-w-[80px] text-center">Meta 2027</th>
-                    <th className="p-3.5 min-w-[80px] text-center">Meta 2028</th>
-                    <th className="p-3.5 min-w-[80px] text-center">Meta 2029</th>
-                    <th className="p-3.5 min-w-[80px] text-center bg-emerald-950/40 font-bold">Meta 2030</th>
+                    <th className="p-3.5 min-w-[85px] text-center bg-emerald-950/30">Exec. 2025</th>
+                    <th className="p-3.5 min-w-[85px] text-center bg-emerald-950/30">Exec. 2026</th>
+                    <th className="p-3.5 min-w-[90px] text-center">2027 (Prev / Exec)</th>
+                    <th className="p-3.5 min-w-[90px] text-center">2028 (Prev / Exec)</th>
+                    <th className="p-3.5 min-w-[90px] text-center">2029 (Prev / Exec)</th>
+                    <th className="p-3.5 min-w-[95px] text-center bg-emerald-950/40 font-bold">2030 (Prev / Exec)</th>
                     <th className="p-3.5 min-w-[160px]">Fonte de Verificação</th>
                     <th className="p-3.5 w-24 text-right">Ações</th>
                   </tr>
@@ -868,17 +880,35 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                       <td className="p-3.5 text-center font-mono font-semibold text-slate-700 bg-slate-50/40">
                         {kpi.linhaBase2026}
                       </td>
-                      <td className="p-3.5 text-center font-mono font-bold text-[#006837]">
-                        {kpi.meta2027}
+                      <td className="p-3.5 text-center font-mono text-slate-700 bg-slate-50/30">
+                        {kpi.exec2025 || '—'}
+                      </td>
+                      <td className="p-3.5 text-center font-mono text-slate-700 bg-slate-50/30">
+                        {kpi.exec2026 || '—'}
                       </td>
                       <td className="p-3.5 text-center font-mono font-bold text-[#006837]">
-                        {kpi.meta2028}
+                        <div>{kpi.meta2027}</div>
+                        {kpi.exec2027 && (
+                          <div className="text-[10px] font-semibold text-teal-700 mt-0.5">Exec: {kpi.exec2027}</div>
+                        )}
                       </td>
                       <td className="p-3.5 text-center font-mono font-bold text-[#006837]">
-                        {kpi.meta2029}
+                        <div>{kpi.meta2028}</div>
+                        {kpi.exec2028 && (
+                          <div className="text-[10px] font-semibold text-teal-700 mt-0.5">Exec: {kpi.exec2028}</div>
+                        )}
+                      </td>
+                      <td className="p-3.5 text-center font-mono font-bold text-[#006837]">
+                        <div>{kpi.meta2029}</div>
+                        {kpi.exec2029 && (
+                          <div className="text-[10px] font-semibold text-teal-700 mt-0.5">Exec: {kpi.exec2029}</div>
+                        )}
                       </td>
                       <td className="p-3.5 text-center font-mono font-black text-emerald-900 bg-emerald-50/60">
-                        {kpi.meta2030}
+                        <div>{kpi.meta2030}</div>
+                        {kpi.exec2030 && (
+                          <div className="text-[10px] font-semibold text-teal-700 mt-0.5">Exec: {kpi.exec2030}</div>
+                        )}
                       </td>
                       <td className="p-3.5 text-slate-600 text-[11px]">
                         {kpi.fonteVerificacao}
@@ -1549,10 +1579,16 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                 nome: formData.get('nome') as string,
                 unidadeMedida: formData.get('unidadeMedida') as string,
                 linhaBase2026: formData.get('linhaBase2026') as string,
+                exec2025: (formData.get('exec2025') as string) || '',
+                exec2026: (formData.get('exec2026') as string) || '',
                 meta2027: formData.get('meta2027') as string,
+                exec2027: (formData.get('exec2027') as string) || '',
                 meta2028: formData.get('meta2028') as string,
+                exec2028: (formData.get('exec2028') as string) || '',
                 meta2029: formData.get('meta2029') as string,
+                exec2029: (formData.get('exec2029') as string) || '',
                 meta2030: formData.get('meta2030') as string,
+                exec2030: (formData.get('exec2030') as string) || '',
                 fonteVerificacao: formData.get('fonteVerificacao') as string
               });
             }} className="space-y-3.5 mt-4 text-xs">
@@ -1572,27 +1608,56 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({ usua
                 <input name="nome" defaultValue={editingKpi.nome} required className="w-full p-2 border rounded-lg" />
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Linha de Base (2026)</label>
-                <input name="linhaBase2026" defaultValue={editingKpi.linhaBase2026} required className="w-full p-2 border rounded-lg" />
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Linha de Base (2026)</label>
+                  <input name="linhaBase2026" defaultValue={editingKpi.linhaBase2026} required className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Execução 2025</label>
+                  <input name="exec2025" defaultValue={editingKpi.exec2025 || ''} placeholder="Ex: 1.420" className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Execução 2026</label>
+                  <input name="exec2026" defaultValue={editingKpi.exec2026 || ''} placeholder="Ex: 1.574" className="w-full p-2 border rounded-lg" />
+                </div>
               </div>
 
               <div className="grid grid-cols-4 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Meta 2027</label>
+                  <label className="font-bold text-slate-700 block mb-1">Prev. 2027</label>
                   <input name="meta2027" defaultValue={editingKpi.meta2027} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Meta 2028</label>
+                  <label className="font-bold text-slate-700 block mb-1">Prev. 2028</label>
                   <input name="meta2028" defaultValue={editingKpi.meta2028} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Meta 2029</label>
+                  <label className="font-bold text-slate-700 block mb-1">Prev. 2029</label>
                   <input name="meta2029" defaultValue={editingKpi.meta2029} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Meta 2030</label>
+                  <label className="font-bold text-slate-700 block mb-1">Prev. 2030</label>
                   <input name="meta2030" defaultValue={editingKpi.meta2030} required className="w-full p-2 border rounded-lg font-bold text-emerald-900" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Exec. 2027</label>
+                  <input name="exec2027" defaultValue={editingKpi.exec2027 || ''} placeholder="Realizado" className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Exec. 2028</label>
+                  <input name="exec2028" defaultValue={editingKpi.exec2028 || ''} placeholder="Realizado" className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Exec. 2029</label>
+                  <input name="exec2029" defaultValue={editingKpi.exec2029 || ''} placeholder="Realizado" className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Exec. 2030</label>
+                  <input name="exec2030" defaultValue={editingKpi.exec2030 || ''} placeholder="Realizado" className="w-full p-2 border rounded-lg" />
                 </div>
               </div>
 

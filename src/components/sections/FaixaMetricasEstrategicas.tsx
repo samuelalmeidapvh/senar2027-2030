@@ -11,15 +11,16 @@ import {
   RotateCcw,
   X,
   Check,
-  Table2,
   Sprout,
   BarChart3,
   GraduationCap,
   Building2,
-  FileSpreadsheet,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Target,
+  Globe2
 } from 'lucide-react';
 import { MapaRondoniaModal, MapaRondoniaOpenRequest } from '../modals/MapaRondoniaModal';
+import { FichaTecnicaObjetivo } from '../../types/strategic';
 
 type MetricIconKey =
   | 'MapPin'
@@ -30,7 +31,9 @@ type MetricIconKey =
   | 'Sprout'
   | 'BarChart3'
   | 'GraduationCap'
-  | 'Building2';
+  | 'Building2'
+  | 'Globe2'
+  | 'Target';
 
 interface MetricaCardItem {
   id: string;
@@ -64,7 +67,10 @@ interface FichaPrevisaoConfig {
   linhas: PrevisaoAnualLinha[];
 }
 
-const STORAGE_KEY_FAIXA = 'senar_faixa_metricas_v1';
+const STORAGE_KEY_FAIXA_LEGACY = 'senar_faixa_metricas_v1';
+const STORAGE_KEY_FAIXA_V2 = 'senar_faixa_metricas_v2';
+const STORAGE_KEY_FAIXA_V3 = 'senar_faixa_metricas_v3';
+const STORAGE_KEY_FAIXA = 'senar_faixa_metricas_v4';
 const STORAGE_KEY_FICHA = 'senar_ficha_previsao_anual_v1';
 
 const DEFAULT_FAIXA_CONFIG: FaixaMetricasConfig = {
@@ -78,27 +84,6 @@ const DEFAULT_FAIXA_CONFIG: FaixaMetricasConfig = {
       titulo: 'Municípios Cobertos',
       subtitulo: '100% de capilaridade estadual',
       icone: 'MapPin'
-    },
-    {
-      id: 'metric-2',
-      valor: '6.180+',
-      titulo: 'Propriedades na ATeG',
-      subtitulo: 'Consultoria mensal e continuada',
-      icone: 'Users'
-    },
-    {
-      id: 'metric-3',
-      valor: '28.000+',
-      titulo: 'Produtores Qualificados',
-      subtitulo: 'Formação Profissional no Ciclo 2027–2030',
-      icone: 'Award'
-    },
-    {
-      id: 'metric-4',
-      valor: '91,2',
-      titulo: 'NPS do Produtor Rural',
-      subtitulo: 'Zona de excelência institucional',
-      icone: 'HeartHandshake'
     }
   ]
 };
@@ -147,7 +132,9 @@ const ICON_OPTIONS: { value: MetricIconKey; label: string }[] = [
   { value: 'Sprout', label: 'Agro / Sustentabilidade' },
   { value: 'BarChart3', label: 'Indicadores / Dados' },
   { value: 'GraduationCap', label: 'Educação / Formação' },
-  { value: 'Building2', label: 'Institucional / Unidades' }
+  { value: 'Building2', label: 'Institucional / Unidades' },
+  { value: 'Globe2', label: 'Competitividade / Mercado' },
+  { value: 'Target', label: 'Objetivo / Foco' }
 ];
 
 function renderMetricIcon(key: MetricIconKey) {
@@ -171,6 +158,10 @@ function renderMetricIcon(key: MetricIconKey) {
       return <GraduationCap className={cls} />;
     case 'Building2':
       return <Building2 className={cls} />;
+    case 'Globe2':
+      return <Globe2 className={cls} />;
+    case 'Target':
+      return <Target className={cls} />;
     default:
       return <Award className={cls} />;
   }
@@ -178,17 +169,39 @@ function renderMetricIcon(key: MetricIconKey) {
 
 interface FaixaMetricasEstrategicasProps {
   externalOpenRequest?: MapaRondoniaOpenRequest | null;
+  fichas?: FichaTecnicaObjetivo[];
+  onChangeFichas?: React.Dispatch<React.SetStateAction<FichaTecnicaObjetivo[]>>;
 }
 
 export const FaixaMetricasEstrategicas: React.FC<FaixaMetricasEstrategicasProps> = ({
-  externalOpenRequest
+  externalOpenRequest,
+  fichas,
+  onChangeFichas
 }) => {
   const [config, setConfig] = useState<FaixaMetricasConfig>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_FAIXA);
-      if (saved) {
-        const parsed = JSON.parse(saved);
+      const savedV4 = localStorage.getItem(STORAGE_KEY_FAIXA);
+      if (savedV4) {
+        const parsed = JSON.parse(savedV4);
         if (parsed && Array.isArray(parsed.cards)) return parsed;
+      }
+      const savedPrev =
+        localStorage.getItem(STORAGE_KEY_FAIXA_V3) ||
+        localStorage.getItem(STORAGE_KEY_FAIXA_V2) ||
+        localStorage.getItem(STORAGE_KEY_FAIXA_LEGACY);
+      if (savedPrev) {
+        const parsed = JSON.parse(savedPrev);
+        if (parsed && Array.isArray(parsed.cards) && parsed.cards.length > 0) {
+          const firstCard =
+            parsed.cards.find((c: MetricaCardItem) => c.id === 'metric-1') || parsed.cards[0];
+          return {
+            ...DEFAULT_FAIXA_CONFIG,
+            kicker: parsed.kicker || DEFAULT_FAIXA_CONFIG.kicker,
+            titulo: parsed.titulo || DEFAULT_FAIXA_CONFIG.titulo,
+            ciclo: parsed.ciclo || DEFAULT_FAIXA_CONFIG.ciclo,
+            cards: firstCard ? [firstCard] : DEFAULT_FAIXA_CONFIG.cards
+          };
+        }
       }
     } catch {
       // fallback to default
@@ -221,6 +234,7 @@ export const FaixaMetricasEstrategicas: React.FC<FaixaMetricasEstrategicasProps>
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_FAIXA, JSON.stringify(config));
+      window.dispatchEvent(new CustomEvent('senar_faixa_metricas_sync_v1'));
     } catch {
       // ignore storage errors
     }
@@ -377,18 +391,6 @@ export const FaixaMetricasEstrategicas: React.FC<FaixaMetricasEstrategicasProps>
 
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                openFichaModal();
-              }}
-              className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-semibold text-emerald-100 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Table2 className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Ver Ficha 2027–2030</span>
-            </button>
-
-            <button
-              type="button"
               onClick={openEditFaixa}
               className="px-2.5 py-1.5 rounded-lg bg-emerald-500/25 hover:bg-emerald-500/40 border border-emerald-300/35 text-xs font-semibold text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
@@ -465,77 +467,6 @@ export const FaixaMetricasEstrategicas: React.FC<FaixaMetricasEstrategicasProps>
             className="w-full max-w-4xl bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
-            <div className="px-5 py-4 bg-gradient-to-r from-[#004d26] to-[#006837] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-                  <FileSpreadsheet className="w-5 h-5 text-emerald-200" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-200 font-bold block">
-                    Ficha de Planejamento · SENAR-AR/RO
-                  </span>
-                  <h4 className="text-base sm:text-lg font-extrabold text-white leading-tight">
-                    {isEditingFicha ? draftFicha.tituloFicha : fichaConfig.tituloFicha}
-                  </h4>
-                  <p className="text-xs text-emerald-100/90 mt-0.5">
-                    {isEditingFicha ? draftFicha.subtituloFicha : fichaConfig.subtituloFicha}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-end sm:self-center">
-                <button
-                  type="button"
-                  onClick={() => setShowOriginalImage((prev) => !prev)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
-                    showOriginalImage
-                      ? 'bg-white text-[#006837] border-white'
-                      : 'bg-white/10 hover:bg-white/20 text-white border-white/25'
-                  }`}
-                >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  <span>{showOriginalImage ? 'Ver Tabela Interativa' : 'Ver Imagem Anexada'}</span>
-                </button>
-
-                {!showOriginalImage && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isEditingFicha) {
-                        handleSaveFicha();
-                      } else {
-                        setDraftFicha(JSON.parse(JSON.stringify(fichaConfig)));
-                        setIsEditingFicha(true);
-                      }
-                    }}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-400/25 hover:bg-emerald-400/35 border border-emerald-200/40 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    {isEditingFicha ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Salvar Ficha</span>
-                      </>
-                    ) : (
-                      <>
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>Editar Ficha</span>
-                      </>
-                    )}
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setIsFichaOpen(false)}
-                  className="p-1.5 rounded-lg text-emerald-100 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
-                  title="Fechar ficha"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
             {/* Modal Body */}
             <div className="p-5 sm:p-6 overflow-y-auto space-y-5">
               {showOriginalImage ? (
@@ -762,15 +693,57 @@ export const FaixaMetricasEstrategicas: React.FC<FaixaMetricasEstrategicasProps>
             </div>
 
             {/* Modal Footer */}
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
               <span>SENAR Rondônia · Planejamento Estratégico 2027–2030</span>
-              <button
-                type="button"
-                onClick={() => setIsFichaOpen(false)}
-                className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold transition-colors cursor-pointer"
-              >
-                Fechar
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOriginalImage((prev) => !prev)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                    showOriginalImage
+                      ? 'bg-[#006837] text-white border-[#006837]'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                  }`}
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>{showOriginalImage ? 'Ver Tabela Interativa' : 'Ver Imagem Anexada'}</span>
+                </button>
+
+                {!showOriginalImage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isEditingFicha) {
+                        handleSaveFicha();
+                      } else {
+                        setDraftFicha(JSON.parse(JSON.stringify(fichaConfig)));
+                        setIsEditingFicha(true);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {isEditingFicha ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Salvar Ficha</span>
+                      </>
+                    ) : (
+                      <>
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Editar Ficha</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsFichaOpen(false)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -976,6 +949,8 @@ export const FaixaMetricasEstrategicas: React.FC<FaixaMetricasEstrategicasProps>
         isOpen={isMapaRondoniaOpen}
         onClose={() => setIsMapaRondoniaOpen(false)}
         initialRequest={externalOpenRequest}
+        fichas={fichas}
+        onChangeFichas={onChangeFichas}
       />
     </section>
   );

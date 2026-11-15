@@ -8,10 +8,15 @@ import {
   Check,
   X,
   RotateCcw,
-  Map as MapIcon,
   Layers,
-  Copy
+  Copy,
+  Target,
+  ChevronUp,
+  ChevronDown,
+  TrendingUp
 } from 'lucide-react';
+import { FichaTecnicaObjetivo, IndicadorMetaFicha } from '../../types/strategic';
+import { FICHAS_TECNICAS_INICIAIS } from '../../data/fichasTecnicasData';
 import {
   MUNICIPIOS_RONDONIA,
   INITIAL_MUNICIPIO_NUMEROS,
@@ -38,9 +43,28 @@ interface MapaRondoniaModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialRequest?: MapaRondoniaOpenRequest | null;
+  fichas?: FichaTecnicaObjetivo[];
+  onChangeFichas?: React.Dispatch<React.SetStateAction<FichaTecnicaObjetivo[]>>;
 }
 
+interface MapaRondoniaSectionProps {
+  fichas?: FichaTecnicaObjetivo[];
+  onChangeFichas?: React.Dispatch<React.SetStateAction<FichaTecnicaObjetivo[]>>;
+}
+
+interface MapaRondoniaContentProps {
+  mode: 'section' | 'modal';
+  isActive: boolean;
+  onClose?: () => void;
+  initialRequest?: MapaRondoniaOpenRequest | null;
+  fichas?: FichaTecnicaObjetivo[];
+  onChangeFichas?: React.Dispatch<React.SetStateAction<FichaTecnicaObjetivo[]>>;
+}
+
+const MAPA_SYNC_EVENT = 'senar_rondonia_mapa_sync_v1';
+
 const STORAGE_KEY_MUNICIPIOS = 'senar_rondonia_municipios_v1';
+const STORAGE_KEY_MUNICIPIOS_ANOS = 'senar_rondonia_municipios_por_ano_v1';
 const STORAGE_KEY_ESTADUAL_ANOS = 'senar_rondonia_estadual_por_ano_v1';
 const STORAGE_KEY_METAS_TABELA = 'senar_consolidado_metas_2027_2030_v1';
 
@@ -298,29 +322,77 @@ const DEFAULT_ESTADUAL_POR_ANO: Record<AnoConsolidado, SenarNumerosMunicipio> = 
   '2030': createProjectedYearData('2030', '8.749', '12.843', '2.384', '42.809', '71')
 };
 
-export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
-  isOpen,
+const MapaRondoniaContent: React.FC<MapaRondoniaContentProps> = ({
+  mode,
+  isActive,
   onClose,
-  initialRequest
+  initialRequest,
+  fichas,
+  onChangeFichas
 }) => {
   const resumoEstadualRef = useRef<HTMLDivElement | null>(null);
   const lastHandledNonceRef = useRef<number | null>(null);
+  const instanceIdRef = useRef<string>(`mapa-${Math.random().toString(36).slice(2)}`);
+  const isSyncingFromExternalRef = useRef(false);
 
-  const [dadosPorMunicipio, setDadosPorMunicipio] = useState<Record<string, SenarNumerosMunicipio>>(() => {
+  const [localFichas, setLocalFichas] = useState<FichaTecnicaObjetivo[]>(FICHAS_TECNICAS_INICIAIS);
+  const activeFichasList = fichas ?? localFichas;
+  const setActiveFichasList = onChangeFichas ?? setLocalFichas;
+
+  const fichaAteg = useMemo(() => {
+    return (
+      activeFichasList.find(
+        (f) =>
+          f.id === 'ficha-oe-02-dateg-ateg' ||
+          (f.codigoObjetivo === '02' && f.nomeObjetivo.toUpperCase().includes('ATEG'))
+      ) || FICHAS_TECNICAS_INICIAIS.find((f) => f.id === 'ficha-oe-02-dateg-ateg')
+    );
+  }, [activeFichasList]);
+
+  const [showAtegIndicadores, setShowAtegIndicadores] = useState(true);
+  const [editingAtegKpiId, setEditingAtegKpiId] = useState<string | null>(null);
+  const [isAddingAtegKpi, setIsAddingAtegKpi] = useState(false);
+  const [draftAtegKpi, setDraftAtegKpi] = useState<IndicadorMetaFicha | null>(null);
+
+  const [selectedAnoMunicipio, setSelectedAnoMunicipio] = useState<AnoConsolidado>('2025');
+  const [municipiosPorAno, setMunicipiosPorAno] = useState<
+    Record<AnoConsolidado, Record<string, SenarNumerosMunicipio>>
+  >(() => {
+    const emptyYears: Record<AnoConsolidado, Record<string, SenarNumerosMunicipio>> = {
+      '2025': INITIAL_MUNICIPIO_NUMEROS,
+      '2026': {},
+      '2027': {},
+      '2028': {},
+      '2029': {},
+      '2030': {}
+    };
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_MUNICIPIOS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') return parsed;
+      const savedByYear = localStorage.getItem(STORAGE_KEY_MUNICIPIOS_ANOS);
+      if (savedByYear) {
+        const parsed = JSON.parse(savedByYear);
+        if (parsed && typeof parsed === 'object') {
+          return { ...emptyYears, ...parsed };
+        }
+      }
+      const savedLegacy2025 = localStorage.getItem(STORAGE_KEY_MUNICIPIOS);
+      if (savedLegacy2025) {
+        const parsedLegacy = JSON.parse(savedLegacy2025);
+        if (parsedLegacy && typeof parsedLegacy === 'object') {
+          return { ...emptyYears, '2025': parsedLegacy };
+        }
       }
     } catch {
       // fallback
     }
-    return INITIAL_MUNICIPIO_NUMEROS;
+    return emptyYears;
   });
 
+  const dadosPorMunicipio = municipiosPorAno[selectedAnoMunicipio] || {};
+
   const [selectedAnoConsolidado, setSelectedAnoConsolidado] = useState<AnoConsolidado>('2025');
-  const [estadualPorAno, setEstadualPorAno] = useState<Record<AnoConsolidado, SenarNumerosMunicipio>>(() => {
+  const [estadualPorAno, setEstadualPorAno] = useState<
+    Partial<Record<AnoConsolidado, SenarNumerosMunicipio>>
+  >(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_ESTADUAL_ANOS);
       if (saved) {
@@ -341,8 +413,6 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
     }
     return DEFAULT_ESTADUAL_POR_ANO;
   });
-
-  const estadualData = estadualPorAno[selectedAnoConsolidado] || DEFAULT_ESTADUAL_POR_ANO[selectedAnoConsolidado];
 
   const [viewTab, setViewTab] = useState<'mapa' | 'estadual'>('mapa');
   const [consolidadoScope, setConsolidadoScope] = useState<string>('ESTADUAL');
@@ -375,31 +445,90 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
   const [draftData, setDraftData] = useState<SenarNumerosMunicipio | null>(null);
 
   useEffect(() => {
+    const handleExternalSync = (e: Event) => {
+      const detail = (e as CustomEvent<{ sourceId: string; key: string }>).detail;
+      if (!detail || detail.sourceId === instanceIdRef.current) return;
+      isSyncingFromExternalRef.current = true;
+      try {
+        if (detail.key === STORAGE_KEY_MUNICIPIOS_ANOS) {
+          const saved = localStorage.getItem(STORAGE_KEY_MUNICIPIOS_ANOS);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object') {
+              setMunicipiosPorAno((prev) => ({ ...prev, ...parsed }));
+            }
+          }
+        } else if (detail.key === STORAGE_KEY_ESTADUAL_ANOS) {
+          const saved = localStorage.getItem(STORAGE_KEY_ESTADUAL_ANOS);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object') {
+              setEstadualPorAno({ ...DEFAULT_ESTADUAL_POR_ANO, ...parsed });
+            }
+          }
+        } else if (detail.key === STORAGE_KEY_METAS_TABELA) {
+          const saved = localStorage.getItem(STORAGE_KEY_METAS_TABELA);
+          if (saved) {
+            setMetasTabelaMap(normalizeConsolidadoStorage(JSON.parse(saved)));
+          }
+        }
+      } catch {
+        // ignore parse errors
+      } finally {
+        window.setTimeout(() => {
+          isSyncingFromExternalRef.current = false;
+        }, 0);
+      }
+    };
+    window.addEventListener(MAPA_SYNC_EVENT, handleExternalSync);
+    return () => window.removeEventListener(MAPA_SYNC_EVENT, handleExternalSync);
+  }, []);
+
+  useEffect(() => {
+    if (isSyncingFromExternalRef.current) return;
     try {
-      localStorage.setItem(STORAGE_KEY_MUNICIPIOS, JSON.stringify(dadosPorMunicipio));
+      localStorage.setItem(STORAGE_KEY_MUNICIPIOS_ANOS, JSON.stringify(municipiosPorAno));
+      localStorage.setItem(STORAGE_KEY_MUNICIPIOS, JSON.stringify(municipiosPorAno['2025'] || {}));
+      window.dispatchEvent(
+        new CustomEvent(MAPA_SYNC_EVENT, {
+          detail: { sourceId: instanceIdRef.current, key: STORAGE_KEY_MUNICIPIOS_ANOS }
+        })
+      );
     } catch {
       // ignore storage errors
     }
-  }, [dadosPorMunicipio]);
+  }, [municipiosPorAno]);
 
   useEffect(() => {
+    if (isSyncingFromExternalRef.current) return;
     try {
       localStorage.setItem(STORAGE_KEY_ESTADUAL_ANOS, JSON.stringify(estadualPorAno));
+      window.dispatchEvent(
+        new CustomEvent(MAPA_SYNC_EVENT, {
+          detail: { sourceId: instanceIdRef.current, key: STORAGE_KEY_ESTADUAL_ANOS }
+        })
+      );
     } catch {
       // ignore storage errors
     }
   }, [estadualPorAno]);
 
   useEffect(() => {
+    if (isSyncingFromExternalRef.current) return;
     try {
       localStorage.setItem(STORAGE_KEY_METAS_TABELA, JSON.stringify(metasTabelaMap));
+      window.dispatchEvent(
+        new CustomEvent(MAPA_SYNC_EVENT, {
+          detail: { sourceId: instanceIdRef.current, key: STORAGE_KEY_METAS_TABELA }
+        })
+      );
     } catch {
       // ignore storage errors
     }
   }, [metasTabelaMap]);
 
   useEffect(() => {
-    if (!isOpen || !initialRequest) return;
+    if (!isActive || !initialRequest) return;
     if (lastHandledNonceRef.current === initialRequest.nonce) return;
     lastHandledNonceRef.current = initialRequest.nonce;
 
@@ -417,7 +546,7 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
       }, 80);
       return () => window.clearTimeout(timer);
     }
-  }, [isOpen, initialRequest]);
+  }, [isActive, initialRequest]);
 
   const filteredMunicipios = useMemo(() => {
     return MUNICIPIOS_RONDONIA.filter((m) => {
@@ -437,12 +566,20 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
   const currentMunicipioData = dadosPorMunicipio[selectedMunicipio.id] || null;
   const totalComDados = Object.keys(dadosPorMunicipio).length;
 
-  if (!isOpen) return null;
-
   const handleSelectMunicipio = (id: string) => {
     setSelectedMunicipioId(id);
     setIsEditing(false);
     setDraftData(null);
+  };
+
+  const activePanelScope = viewTab === 'estadual' ? consolidadoScope : selectedMunicipio.id;
+  const activePanelAno = viewTab === 'estadual' ? selectedAnoConsolidado : selectedAnoMunicipio;
+
+  const getPanelData = (scopeId: string, ano: AnoConsolidado): SenarNumerosMunicipio | null => {
+    if (scopeId === 'ESTADUAL') {
+      return estadualPorAno[ano] || null;
+    }
+    return (municipiosPorAno[ano] || {})[scopeId] || null;
   };
 
   const handleStartInclude = (usarModeloEstadual = false) => {
@@ -454,10 +591,7 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
   };
 
   const handleStartEdit = () => {
-    const source =
-      viewTab === 'estadual'
-        ? estadualData
-        : currentMunicipioData || createEmptyMunicipioData();
+    const source = getPanelData(activePanelScope, activePanelAno) || createEmptyMunicipioData();
     setDraftData(JSON.parse(JSON.stringify(source)));
     setIsEditing(true);
   };
@@ -480,33 +614,55 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
       atualizadoEm: new Date().toLocaleDateString('pt-BR')
     };
 
-    if (viewTab === 'estadual') {
+    if (activePanelScope === 'ESTADUAL') {
       setEstadualPorAno((prev) => ({
         ...prev,
-        [selectedAnoConsolidado]: sanitized
+        [activePanelAno]: sanitized
       }));
     } else {
-      setDadosPorMunicipio((prev) => ({
+      setMunicipiosPorAno((prev) => ({
         ...prev,
-        [selectedMunicipio.id]: sanitized
+        [activePanelAno]: {
+          ...(prev[activePanelAno] || {}),
+          [activePanelScope]: sanitized
+        }
       }));
     }
     setIsEditing(false);
     setDraftData(null);
   };
 
-  const handleDeleteMunicipioData = (id: string) => {
-    setDadosPorMunicipio((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+  const handleDeletePanelData = (scopeId: string, ano: AnoConsolidado) => {
+    if (scopeId === 'ESTADUAL') {
+      setEstadualPorAno((prev) => {
+        const next = { ...prev };
+        delete next[ano];
+        return next;
+      });
+    } else {
+      setMunicipiosPorAno((prev) => {
+        const yearMap = { ...(prev[ano] || {}) };
+        delete yearMap[scopeId];
+        return {
+          ...prev,
+          [ano]: yearMap
+        };
+      });
+    }
     setIsEditing(false);
     setDraftData(null);
   };
 
   const handleResetAll = () => {
-    setDadosPorMunicipio(INITIAL_MUNICIPIO_NUMEROS);
+    setMunicipiosPorAno({
+      '2025': INITIAL_MUNICIPIO_NUMEROS,
+      '2026': {},
+      '2027': {},
+      '2028': {},
+      '2029': {},
+      '2030': {}
+    });
+    setSelectedAnoMunicipio('2025');
     setEstadualPorAno(DEFAULT_ESTADUAL_POR_ANO);
     setSelectedAnoConsolidado('2025');
     setMetasTabelaMap(DEFAULT_CONSOLIDADO_TABELAS);
@@ -671,6 +827,72 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
         }))
       }))
     }));
+  };
+
+  // Helpers para Indicadores, Linha de Base e Metas Anuais (2027-2030) da Ficha Técnica 02 (ATeG)
+  const handleStartAddAtegKpi = () => {
+    const nextIdx = (fichaAteg?.indicadoresMetas.length || 0) + 1;
+    setEditingAtegKpiId(null);
+    setIsAddingAtegKpi(true);
+    setShowAtegIndicadores(true);
+    setDraftAtegKpi({
+      id: `kpi-dateg-${Date.now()}`,
+      codigo: `02.${nextIdx}`,
+      nome: '',
+      unidadeMedida: 'Percentual (%)',
+      linhaBase2026: '',
+      exec2025: '',
+      exec2026: '',
+      meta2027: '',
+      exec2027: '',
+      meta2028: '',
+      exec2028: '',
+      meta2029: '',
+      exec2029: '',
+      meta2030: '',
+      exec2030: '',
+      fonteVerificacao: ''
+    });
+  };
+
+  const handleStartEditAtegKpi = (kpi: IndicadorMetaFicha) => {
+    setIsAddingAtegKpi(false);
+    setEditingAtegKpiId(kpi.id);
+    setDraftAtegKpi({ ...kpi });
+  };
+
+  const handleSaveAtegKpi = () => {
+    if (!draftAtegKpi || !draftAtegKpi.nome.trim() || !fichaAteg) return;
+    setActiveFichasList((prev) =>
+      prev.map((f) => {
+        if (f.id !== fichaAteg.id) return f;
+        const exists = f.indicadoresMetas.some((k) => k.id === draftAtegKpi.id);
+        return {
+          ...f,
+          indicadoresMetas: exists
+            ? f.indicadoresMetas.map((k) => (k.id === draftAtegKpi.id ? draftAtegKpi : k))
+            : [...f.indicadoresMetas, draftAtegKpi]
+        };
+      })
+    );
+    setEditingAtegKpiId(null);
+    setIsAddingAtegKpi(false);
+    setDraftAtegKpi(null);
+  };
+
+  const handleDeleteAtegKpi = (kpiId: string) => {
+    if (!fichaAteg) return;
+    setActiveFichasList((prev) =>
+      prev.map((f) =>
+        f.id === fichaAteg.id
+          ? { ...f, indicadoresMetas: f.indicadoresMetas.filter((k) => k.id !== kpiId) }
+          : f
+      )
+    );
+    if (editingAtegKpiId === kpiId) {
+      setEditingAtegKpiId(null);
+      setDraftAtegKpi(null);
+    }
   };
 
   const updateDraftBlockField = (
@@ -954,88 +1176,531 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-5"
-      onClick={onClose}
-    >
+    <>
+      {/* Body */}
       <div
-        className="w-full max-w-7xl bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[93vh]"
-        onClick={(e) => e.stopPropagation()}
+        className={
+          mode === 'modal'
+            ? 'flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/70 space-y-5'
+            : 'space-y-5'
+        }
       >
-        {/* Modal Header */}
-        <div className="px-5 py-3.5 bg-gradient-to-r from-emerald-950 via-[#004d26] to-[#006837] text-white flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-              <MapIcon className="w-5 h-5 text-emerald-200" />
+          {mode === 'section' && (
+            <nav
+              aria-label="Navegação do Mapa de Rondônia e Senar em Números"
+              className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-2xl border border-slate-200 px-4 py-3 shadow-xs"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewTab('mapa');
+                    setIsEditing(false);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                    viewTab === 'mapa'
+                      ? 'bg-[#006837] text-white border-[#006837] shadow-2xs'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Mapa por Município (52)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewTab('estadual');
+                    setIsEditing(false);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                    viewTab === 'estadual'
+                      ? 'bg-[#006837] text-white border-[#006837] shadow-2xs'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Consolidado Estadual</span>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {viewTab === 'estadual' && (
+                  <select
+                    aria-label="Selecionar Município ou Escopo Estadual"
+                    value={consolidadoScope}
+                    onChange={(e) => handleChangeScope(e.target.value)}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-[#006837] min-w-[220px]"
+                  >
+                    <option value="ESTADUAL">Consolidado Estadual (52 Municípios)</option>
+                    {MUNICIPIOS_RONDONIA.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.nome} ({m.regiao})
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleResetAll}
+                  title="Restaurar dados iniciais"
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              </div>
+            </nav>
+          )}
+
+          {/* BLOCO INSERIDO ACIMA: INDICADORES, LINHA DE BASE E METAS ANUAIS (2027-2030) - FICHA TÉCNICA 02 ATeG */}
+          {mode === 'modal' && fichaAteg && (
+            <div
+              id="ficha-02-ateg-indicadores"
+              className="bg-white rounded-2xl border border-emerald-200/90 p-4 sm:p-5 shadow-xs space-y-4"
+            >
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#006837] text-white font-mono font-bold text-[10px] uppercase tracking-wider">
+                      <Target className="w-3 h-3" />
+                      <span>Ficha Técnica {fichaAteg.codigoObjetivo}</span>
+                    </span>
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                      {fichaAteg.nomeObjetivo}
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      · {fichaAteg.indicadoresMetas.length} indicador(es)
+                    </span>
+                  </div>
+                  <h5 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-tight">
+                    INDICADORES, LINHA DE BASE E METAS ANUAIS (2027–2030)
+                  </h5>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewTab('mapa');
+                      setIsEditing(false);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                      viewTab === 'mapa'
+                        ? 'bg-[#006837] text-white border-[#006837] shadow-2xs'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Mapa por Município (52)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewTab('estadual');
+                      setIsEditing(false);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                      viewTab === 'estadual'
+                        ? 'bg-[#006837] text-white border-[#006837] shadow-2xs'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Consolidado Estadual</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleStartAddAtegKpi}
+                    className="px-3 py-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar Indicador</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAtegIndicadores((prev) => !prev)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {showAtegIndicadores ? (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5" />
+                        <span>Recolher</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                        <span>Expandir</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetAll}
+                    title="Restaurar dados iniciais"
+                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+
+                  {mode === 'modal' && onClose && (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-700 transition-colors cursor-pointer"
+                      title="Fechar"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {showAtegIndicadores && (
+                <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-emerald-900 to-[#006837] text-white font-mono text-[10px] sm:text-[11px] uppercase tracking-wider">
+                        <th className="p-2.5 sm:p-3 w-14 text-center">ID</th>
+                        <th className="p-2.5 sm:p-3 min-w-[210px]">Indicador de Desempenho (KPI)</th>
+                        <th className="p-2.5 sm:p-3 min-w-[95px]">Unidade</th>
+                        <th className="p-2.5 sm:p-3 min-w-[105px] text-center bg-emerald-950/40">Linha Base (2026)</th>
+                        <th className="p-2.5 sm:p-3 min-w-[80px] text-center bg-emerald-950/30">Exec. 2025</th>
+                        <th className="p-2.5 sm:p-3 min-w-[80px] text-center bg-emerald-950/30">Exec. 2026</th>
+                        <th className="p-2.5 sm:p-3 min-w-[88px] text-center">2027 (Prev / Exec)</th>
+                        <th className="p-2.5 sm:p-3 min-w-[88px] text-center">2028 (Prev / Exec)</th>
+                        <th className="p-2.5 sm:p-3 min-w-[88px] text-center">2029 (Prev / Exec)</th>
+                        <th className="p-2.5 sm:p-3 min-w-[92px] text-center bg-emerald-950/40 font-bold">2030 (Prev / Exec)</th>
+                        <th className="p-2.5 sm:p-3 min-w-[150px]">Fonte de Verificação</th>
+                        <th className="p-2.5 sm:p-3 w-20 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white text-slate-700">
+                      {fichaAteg.indicadoresMetas.map((kpi) => {
+                        const isRowEditing = editingAtegKpiId === kpi.id && draftAtegKpi;
+                        return (
+                          <tr key={kpi.id} className="hover:bg-emerald-50/40 transition-colors">
+                            <td className="p-2.5 sm:p-3 font-mono font-bold text-center text-[#006837] bg-slate-50/60">
+                              {isRowEditing ? (
+                                <input
+                                  type="text"
+                                  value={draftAtegKpi.codigo}
+                                  onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, codigo: e.target.value })}
+                                  className="w-12 text-center px-1.5 py-1 text-xs rounded border border-slate-300 bg-white"
+                                />
+                              ) : (
+                                kpi.codigo
+                              )}
+                            </td>
+                            <td className="p-2.5 sm:p-3 font-bold text-slate-900">
+                              {isRowEditing ? (
+                                <input
+                                  type="text"
+                                  value={draftAtegKpi.nome}
+                                  onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, nome: e.target.value })}
+                                  className="w-full px-2 py-1 text-xs rounded border border-slate-300 bg-white"
+                                />
+                              ) : (
+                                kpi.nome
+                              )}
+                            </td>
+                            <td className="p-2.5 sm:p-3 text-slate-600 font-mono text-[11px]">
+                              {isRowEditing ? (
+                                <input
+                                  type="text"
+                                  value={draftAtegKpi.unidadeMedida}
+                                  onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, unidadeMedida: e.target.value })}
+                                  className="w-24 px-1.5 py-1 text-xs rounded border border-slate-300 bg-white"
+                                />
+                              ) : (
+                                kpi.unidadeMedida
+                              )}
+                            </td>
+                            <td className="p-2.5 sm:p-3 text-center font-mono font-semibold text-slate-700 bg-slate-50/40">
+                              {isRowEditing ? (
+                                <input
+                                  type="text"
+                                  value={draftAtegKpi.linhaBase2026}
+                                  onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, linhaBase2026: e.target.value })}
+                                  className="w-24 text-center px-1.5 py-1 text-xs rounded border border-slate-300 bg-white"
+                                />
+                              ) : (
+                                kpi.linhaBase2026
+                              )}
+                            </td>
+                            <td className="p-2.5 sm:p-3 text-center font-mono text-slate-700 bg-slate-50/30">
+                              {isRowEditing ? (
+                                <input
+                                  type="text"
+                                  value={draftAtegKpi.exec2025 || ''}
+                                  onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, exec2025: e.target.value })}
+                                  placeholder="-"
+                                  className="w-16 text-center px-1.5 py-1 text-xs rounded border border-slate-300 bg-white"
+                                />
+                              ) : (
+                                kpi.exec2025 || '—'
+                              )}
+                            </td>
+                            <td className="p-2.5 sm:p-3 text-center font-mono text-slate-700 bg-slate-50/30">
+                              {isRowEditing ? (
+                                <input
+                                  type="text"
+                                  value={draftAtegKpi.exec2026 || ''}
+                                  onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, exec2026: e.target.value })}
+                                  placeholder="-"
+                                  className="w-16 text-center px-1.5 py-1 text-xs rounded border border-slate-300 bg-white"
+                                />
+                              ) : (
+                                kpi.exec2026 || '—'
+                              )}
+                            </td>
+                            {(
+                              [
+                                ['meta2027', 'exec2027'],
+                                ['meta2028', 'exec2028'],
+                                ['meta2029', 'exec2029'],
+                                ['meta2030', 'exec2030']
+                              ] as const
+                            ).map(([metaField, execField], idx) => (
+                              <td
+                                key={metaField}
+                                className={`p-2.5 sm:p-3 text-center font-mono ${
+                                  idx === 3
+                                    ? 'font-black text-emerald-900 bg-emerald-50/60'
+                                    : 'font-bold text-[#006837]'
+                                }`}
+                              >
+                                {isRowEditing ? (
+                                  <div className="space-y-1">
+                                    <input
+                                      type="text"
+                                      value={draftAtegKpi[metaField]}
+                                      onChange={(e) =>
+                                        setDraftAtegKpi({ ...draftAtegKpi, [metaField]: e.target.value })
+                                      }
+                                      placeholder="Prev."
+                                      className="w-16 text-center px-1 py-0.5 text-[11px] rounded border border-slate-300 bg-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={draftAtegKpi[execField] || ''}
+                                      onChange={(e) =>
+                                        setDraftAtegKpi({ ...draftAtegKpi, [execField]: e.target.value })
+                                      }
+                                      placeholder="Exec."
+                                      className="w-16 text-center px-1 py-0.5 text-[10px] rounded border border-teal-300 bg-teal-50/50 text-teal-800"
+                                    />
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div>{kpi[metaField]}</div>
+                                    {kpi[execField] && (
+                                      <div className="text-[10px] font-semibold text-teal-700 mt-0.5">
+                                        Exec: {kpi[execField]}
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </td>
+                            ))}
+                            <td className="p-2.5 sm:p-3 text-slate-600 text-[11px]">
+                              {isRowEditing ? (
+                                <input
+                                  type="text"
+                                  value={draftAtegKpi.fonteVerificacao}
+                                  onChange={(e) =>
+                                    setDraftAtegKpi({ ...draftAtegKpi, fonteVerificacao: e.target.value })
+                                  }
+                                  className="w-full px-1.5 py-1 text-xs rounded border border-slate-300 bg-white"
+                                />
+                              ) : (
+                                kpi.fonteVerificacao
+                              )}
+                            </td>
+                            <td className="p-2.5 sm:p-3 text-right whitespace-nowrap">
+                              {isRowEditing ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={handleSaveAtegKpi}
+                                    className="p-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white cursor-pointer"
+                                    title="Salvar indicador"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingAtegKpiId(null);
+                                      setDraftAtegKpi(null);
+                                    }}
+                                    className="p-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer"
+                                    title="Cancelar"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditAtegKpi(kpi)}
+                                    className="p-1.5 text-slate-500 hover:text-[#006837] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Editar indicador"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteAtegKpi(kpi.id)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Excluir indicador"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {isAddingAtegKpi && draftAtegKpi && (
+                        <tr className="bg-emerald-50/70">
+                          <td className="p-2.5 sm:p-3 text-center">
+                            <input
+                              type="text"
+                              value={draftAtegKpi.codigo}
+                              onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, codigo: e.target.value })}
+                              className="w-12 text-center px-1.5 py-1 text-xs rounded border border-emerald-300 bg-white"
+                            />
+                          </td>
+                          <td className="p-2.5 sm:p-3">
+                            <input
+                              type="text"
+                              value={draftAtegKpi.nome}
+                              onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, nome: e.target.value })}
+                              placeholder="Nome do indicador"
+                              className="w-full px-2 py-1 text-xs rounded border border-emerald-400 bg-white"
+                              autoFocus
+                            />
+                          </td>
+                          <td className="p-2.5 sm:p-3">
+                            <input
+                              type="text"
+                              value={draftAtegKpi.unidadeMedida}
+                              onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, unidadeMedida: e.target.value })}
+                              className="w-24 px-1.5 py-1 text-xs rounded border border-emerald-300 bg-white"
+                            />
+                          </td>
+                          <td className="p-2.5 sm:p-3 text-center">
+                            <input
+                              type="text"
+                              value={draftAtegKpi.linhaBase2026}
+                              onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, linhaBase2026: e.target.value })}
+                              placeholder="Base 2026"
+                              className="w-24 text-center px-1.5 py-1 text-xs rounded border border-emerald-300 bg-white"
+                            />
+                          </td>
+                          <td className="p-2.5 sm:p-3 text-center">
+                            <input
+                              type="text"
+                              value={draftAtegKpi.exec2025 || ''}
+                              onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, exec2025: e.target.value })}
+                              placeholder="2025"
+                              className="w-16 text-center px-1.5 py-1 text-xs rounded border border-emerald-300 bg-white"
+                            />
+                          </td>
+                          <td className="p-2.5 sm:p-3 text-center">
+                            <input
+                              type="text"
+                              value={draftAtegKpi.exec2026 || ''}
+                              onChange={(e) => setDraftAtegKpi({ ...draftAtegKpi, exec2026: e.target.value })}
+                              placeholder="2026"
+                              className="w-16 text-center px-1.5 py-1 text-xs rounded border border-emerald-300 bg-white"
+                            />
+                          </td>
+                          {(
+                            [
+                              ['meta2027', 'exec2027'],
+                              ['meta2028', 'exec2028'],
+                              ['meta2029', 'exec2029'],
+                              ['meta2030', 'exec2030']
+                            ] as const
+                          ).map(([metaField, execField]) => (
+                            <td key={metaField} className="p-2.5 sm:p-3 text-center">
+                              <div className="space-y-1">
+                                <input
+                                  type="text"
+                                  value={draftAtegKpi[metaField]}
+                                  onChange={(e) =>
+                                    setDraftAtegKpi({ ...draftAtegKpi, [metaField]: e.target.value })
+                                  }
+                                  placeholder="Prev."
+                                  className="w-16 text-center px-1 py-0.5 text-[11px] rounded border border-emerald-300 bg-white"
+                                />
+                                <input
+                                  type="text"
+                                  value={draftAtegKpi[execField] || ''}
+                                  onChange={(e) =>
+                                    setDraftAtegKpi({ ...draftAtegKpi, [execField]: e.target.value })
+                                  }
+                                  placeholder="Exec."
+                                  className="w-16 text-center px-1 py-0.5 text-[10px] rounded border border-teal-300 bg-white"
+                                />
+                              </div>
+                            </td>
+                          ))}
+                          <td className="p-2.5 sm:p-3">
+                            <input
+                              type="text"
+                              value={draftAtegKpi.fonteVerificacao}
+                              onChange={(e) =>
+                                setDraftAtegKpi({ ...draftAtegKpi, fonteVerificacao: e.target.value })
+                              }
+                              placeholder="Fonte"
+                              className="w-full px-1.5 py-1 text-xs rounded border border-emerald-300 bg-white"
+                            />
+                          </td>
+                          <td className="p-2.5 sm:p-3 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={handleSaveAtegKpi}
+                                className="p-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white cursor-pointer"
+                                title="Salvar indicador"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddingAtegKpi(false);
+                                  setDraftAtegKpi(null);
+                                }}
+                                className="p-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer"
+                                title="Cancelar"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-200 font-bold block">
-                Capilaridade Estadual · 52 / 52 Municípios de Rondônia
-              </span>
-              <h4 className="text-base sm:text-lg font-extrabold text-white leading-tight">
-                Mapa de Rondônia — SENAR em Números por Município
-              </h4>
-            </div>
-          </div>
+          )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setViewTab('mapa');
-                setIsEditing(false);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
-                viewTab === 'mapa'
-                  ? 'bg-white text-[#006837] border-white shadow-xs'
-                  : 'bg-white/10 hover:bg-white/20 text-white border-white/25'
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              <span>Mapa por Município (52)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setViewTab('estadual');
-                setIsEditing(false);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
-                viewTab === 'estadual'
-                  ? 'bg-white text-[#006837] border-white shadow-xs'
-                  : 'bg-white/10 hover:bg-white/20 text-white border-white/25'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Consolidado Estadual</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleResetAll}
-              title="Restaurar dados iniciais"
-              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-emerald-100 hover:text-white transition-colors cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-emerald-100 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
-              title="Fechar"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/70">
           {viewTab === 'estadual' ? (
             <div className="space-y-5">
               {/* TABELA DE METAS ANUAIS (PREVISTA x EXECUTADA 2027-2030) POR MUNICÍPIO OU ESTADUAL */}
+              {mode === 'modal' && (
               <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-slate-200">
                   <div className="space-y-1">
@@ -1464,36 +2129,110 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
                   })}
                 </div>
               </div>
+              )}
 
-              {/* RESUMO SENAR EM NÚMEROS (ESTADUAL) */}
-              {consolidadoScope === 'ESTADUAL' && (
-                <div
-                  id="senar-numeros-consolidado-estadual"
-                  ref={resumoEstadualRef}
-                  className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-5 scroll-mt-4"
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-                    <div>
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#006837] block">
-                        Estado de Rondônia · 52 Municípios · Ano {selectedAnoConsolidado}
-                      </span>
-                      <h5 className="text-lg font-black text-slate-900">
-                        Senar em Números — Consolidado Estadual ({selectedAnoConsolidado})
-                      </h5>
-                    </div>
+              {/* SENAR EM NÚMEROS (INTEGRADO DO MAPA POR MUNICÍPIO / CONSOLIDADO ESTADUAL) */}
+              {(() => {
+                const targetMunicipio =
+                  consolidadoScope === 'ESTADUAL'
+                    ? null
+                    : MUNICIPIOS_RONDONIA.find((m) => m.id === consolidadoScope) || null;
+                const panelData = getPanelData(consolidadoScope, selectedAnoConsolidado);
+                const scopeTitle = targetMunicipio
+                  ? `${targetMunicipio.nome} — Senar em Números (${selectedAnoConsolidado})`
+                  : `Consolidado Estadual — Senar em Números (${selectedAnoConsolidado})`;
+                const regiaoBadge = targetMunicipio ? targetMunicipio.regiao : 'Estado de Rondônia · 52 Municípios';
 
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-mono font-bold uppercase text-slate-500 mb-1">
-                          Selecionar Ano
+                return (
+                  <div
+                    id="senar-numeros-consolidado-estadual"
+                    ref={resumoEstadualRef}
+                    className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4 scroll-mt-4"
+                  >
+                    <div className="flex flex-col gap-3 pb-3.5 border-b border-slate-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-[#006837]">
+                              {regiaoBadge}
+                            </span>
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                              Ano {selectedAnoConsolidado}
+                            </span>
+                            {panelData ? (
+                              <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-600 text-white">
+                                Com Registro
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                                Sem Registro
+                              </span>
+                            )}
+                          </div>
+                          <h5 className="text-lg sm:text-xl font-black text-slate-900 mt-1">
+                            {scopeTitle}
+                          </h5>
+                        </div>
+
+                        {!isEditing && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {panelData ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={handleStartEdit}
+                                  className="px-3 py-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Alterar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePanelData(consolidadoScope, selectedAnoConsolidado)}
+                                  className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Excluir</span>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartInclude(false)}
+                                  className="px-3 py-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Incluir Dados</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartInclude(true)}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#006837] border border-emerald-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                                  title="Preencher com o modelo oficial da imagem anexada"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>Usar Modelo da Imagem</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Seletor Anual (2025 a 2030) */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                          Selecionar Ano ({targetMunicipio ? targetMunicipio.nome : 'Consolidado Estadual'}):
                         </span>
                         <div
                           className="inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200"
                           role="group"
-                          aria-label="Seleção de ano do Consolidado Estadual (2025 a 2030)"
+                          aria-label="Seleção anual do Senar em Números (2025 a 2030)"
                         >
                           {ANOS_CONSOLIDADO.map((ano) => {
                             const isActive = ano === selectedAnoConsolidado;
+                            const hasYearRecord = Boolean(getPanelData(consolidadoScope, ano));
                             return (
                               <button
                                 key={ano}
@@ -1503,34 +2242,63 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
                                   setIsEditing(false);
                                   setDraftData(null);
                                 }}
-                                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer inline-flex items-center gap-1 ${
                                   isActive
                                     ? 'bg-[#006837] text-white shadow-xs'
                                     : 'text-slate-600 hover:text-slate-900 hover:bg-white'
                                 }`}
                               >
-                                {ano}
+                                <span>{ano}</span>
+                                {hasYearRecord && !isActive && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                                )}
                               </button>
                             );
                           })}
                         </div>
                       </div>
-
-                      {!isEditing && (
-                        <button
-                          type="button"
-                          onClick={handleStartEdit}
-                          className="lg:mt-4 px-3.5 py-2 rounded-xl bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs cursor-pointer self-start lg:self-auto"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          <span>Alterar Consolidado ({selectedAnoConsolidado})</span>
-                        </button>
-                      )}
                     </div>
+
+                    {isEditing ? (
+                      renderEditForm()
+                    ) : panelData ? (
+                      renderSenarCards(panelData)
+                    ) : (
+                      <div className="py-10 px-6 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/70 text-center space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-[#006837] flex items-center justify-center mx-auto">
+                          <MapPin className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h6 className="text-sm font-bold text-slate-900">
+                            Nenhum dado de “Senar em números” cadastrado para {targetMunicipio ? targetMunicipio.nome : 'Consolidado Estadual'} ({selectedAnoConsolidado})
+                          </h6>
+                          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                            Clique abaixo para incluir os números de ATeG, Formação Profissional, Rede e-Tec e Saúde e Promoção Social.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleStartInclude(false)}
+                            className="px-4 py-2 rounded-xl bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>Incluir Novo Registro</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleStartInclude(true)}
+                            className="px-4 py-2 rounded-xl bg-white hover:bg-emerald-50 text-[#006837] border border-emerald-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Copy className="w-4 h-4" />
+                            <span>Preencher com Modelo da Imagem</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {isEditing ? renderEditForm() : renderSenarCards(estadualData)}
-                </div>
-              )}
+                );
+              })()}
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -1849,72 +2617,115 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
 
               {/* RIGHT: SELECTED MUNICIPALITY "SENAR EM NÚMEROS" CRUD PANEL */}
               <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-200">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-[#006837]">
-                        {selectedMunicipio.regiao}
-                      </span>
-                      {currentMunicipioData ? (
-                        <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-600 text-white">
-                          Com Registro
+                <div className="flex flex-col gap-3 pb-3.5 border-b border-slate-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-[#006837]">
+                          {selectedMunicipio.regiao}
                         </span>
-                      ) : (
-                        <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-200 text-slate-700">
-                          Sem Registro
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                          Ano {selectedAnoMunicipio}
                         </span>
-                      )}
+                        {currentMunicipioData ? (
+                          <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-600 text-white">
+                            Com Registro
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                            Sem Registro
+                          </span>
+                        )}
+                      </div>
+                      <h5 className="text-lg sm:text-xl font-black text-slate-900 mt-1">
+                        {selectedMunicipio.nome} — Senar em Números ({selectedAnoMunicipio})
+                      </h5>
                     </div>
-                    <h5 className="text-lg sm:text-xl font-black text-slate-900 mt-1">
-                      {selectedMunicipio.nome} — Senar em Números
-                    </h5>
+
+                    {/* CRUD Action Buttons */}
+                    {!isEditing && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {currentMunicipioData ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleStartEdit}
+                              className="px-3 py-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Alterar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePanelData(selectedMunicipio.id, selectedAnoMunicipio)}
+                              className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Excluir</span>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleStartInclude(false)}
+                              className="px-3 py-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Incluir Dados</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleStartInclude(true)}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#006837] border border-emerald-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                              title="Preencher com o modelo oficial da imagem anexada"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Usar Modelo da Imagem</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {/* CRUD Action Buttons */}
-                  {!isEditing && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {currentMunicipioData ? (
-                        <>
+                  {/* Seletor Anual (2025 a 2030) para os dados do Município */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                      Selecionar Ano ({selectedMunicipio.nome}):
+                    </span>
+                    <div
+                      className="inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200"
+                      role="group"
+                      aria-label="Seleção anual dos dados do município (2025 a 2030)"
+                    >
+                      {ANOS_CONSOLIDADO.map((ano) => {
+                        const isActive = ano === selectedAnoMunicipio;
+                        const hasYearRecord = Boolean((municipiosPorAno[ano] || {})[selectedMunicipio.id]);
+                        return (
                           <button
+                            key={ano}
                             type="button"
-                            onClick={handleStartEdit}
-                            className="px-3 py-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                            onClick={() => {
+                              setSelectedAnoMunicipio(ano);
+                              setIsEditing(false);
+                              setDraftData(null);
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer inline-flex items-center gap-1 ${
+                              isActive
+                                ? 'bg-[#006837] text-white shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                            }`}
                           >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            <span>Alterar</span>
+                            <span>{ano}</span>
+                            {hasYearRecord && !isActive && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                            )}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteMunicipioData(selectedMunicipio.id)}
-                            className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Excluir</span>
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleStartInclude(false)}
-                            className="px-3 py-1.5 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Incluir Dados</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleStartInclude(true)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#006837] border border-emerald-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                            title="Preencher com o modelo oficial da imagem anexada"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Usar Modelo da Imagem</span>
-                          </button>
-                        </>
-                      )}
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Content or Editor */}
@@ -1960,7 +2771,7 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
           )}
         </div>
 
-        {/* Modal Footer */}
+      {mode === 'modal' && onClose && (
         <div className="px-5 py-3 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
           <span>
             SENAR Rondônia · Cobertura Estadual nos 52 Municípios ({totalComDados}/52 com registros detalhados)
@@ -1973,6 +2784,126 @@ export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
             Fechar Mapa
           </button>
         </div>
+      )}
+    </>
+  );
+};
+
+const DEFAULT_FAIXA_HEADER = {
+  kicker: 'Impacto Institucional Comprovado',
+  titulo: 'Indicadores de Transformação no Agro de Rondônia'
+};
+
+function loadFaixaHeaderFromStorage() {
+  try {
+    const saved = localStorage.getItem('senar_faixa_metricas_v4');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          kicker: parsed.kicker || DEFAULT_FAIXA_HEADER.kicker,
+          titulo: parsed.titulo || DEFAULT_FAIXA_HEADER.titulo
+        };
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return DEFAULT_FAIXA_HEADER;
+}
+
+export const MapaRondoniaSection: React.FC<MapaRondoniaSectionProps> = ({
+  fichas,
+  onChangeFichas
+}) => {
+  const [faixaHeader, setFaixaHeader] = useState(loadFaixaHeaderFromStorage);
+
+  useEffect(() => {
+    const handleSync = () => {
+      setFaixaHeader(loadFaixaHeaderFromStorage());
+    };
+    window.addEventListener('senar_faixa_metricas_sync_v1', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('senar_faixa_metricas_sync_v1', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  return (
+    <section
+      id="mapa-rondonia-numeros"
+      className="bg-slate-50 border-t border-slate-200/80 scroll-mt-16"
+    >
+      {/* Faixa verde destacando o início da Section */}
+      <div className="bg-gradient-to-r from-emerald-950 via-[#004d26] to-[#006837] text-white py-5 border-b border-emerald-800 shadow-inner relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-emerald-400/20 flex items-center justify-center text-emerald-300">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-mono tracking-widest text-emerald-300 font-bold block">
+                {faixaHeader.kicker}
+              </span>
+              <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                {faixaHeader.titulo}
+              </h3>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+        <MapaRondoniaContent
+          mode="section"
+          isActive={true}
+          fichas={fichas}
+          onChangeFichas={onChangeFichas}
+        />
+      </div>
+    </section>
+  );
+};
+
+export const MapaRondoniaModal: React.FC<MapaRondoniaModalProps> = ({
+  isOpen,
+  onClose,
+  initialRequest,
+  fichas,
+  onChangeFichas
+}) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-5"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-7xl bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[93vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <MapaRondoniaContent
+          mode="modal"
+          isActive={isOpen}
+          onClose={onClose}
+          initialRequest={initialRequest}
+          fichas={fichas}
+          onChangeFichas={onChangeFichas}
+        />
       </div>
     </div>
   );

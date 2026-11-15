@@ -273,30 +273,40 @@ export const RESULTADOS_SOCIEDADE: Array<{
   titulo: string;
   icone: string;
   descricao: string;
+  metaTitulo: string;
+  metaValor: string;
 }> = [
   {
     id: 'rs-1',
     titulo: 'Produtores rurais mais capacitados',
     icone: 'Sprout',
-    descricao: 'Formação continuada e domínio de técnicas modernas de cultivo, manejo e gestão da propriedade.'
+    descricao: 'Formação continuada e domínio de técnicas modernas de cultivo, manejo e gestão da propriedade.',
+    metaTitulo: 'Produtores Atendidos 2027–2030',
+    metaValor: '42.166'
   },
   {
     id: 'rs-2',
     titulo: 'Aumento da produtividade e renda no campo',
     icone: 'TrendingUp',
-    descricao: 'Elevação da margem líquida, redução de custos e aumento do rendimento zootécnico e agronômico.'
+    descricao: 'Elevação da margem líquida, redução de custos e aumento do rendimento zootécnico e agronômico.',
+    metaTitulo: 'Margem Líquida na ATeG',
+    metaValor: '+28,7%'
   },
   {
     id: 'rs-3',
     titulo: 'Mais qualidade de vida para as famílias rurais',
     icone: 'Users',
-    descricao: 'Ações contínuas de saúde preventiva, inclusão social, cidadania e valorização da mulher e jovem no campo.'
+    descricao: 'Ações contínuas de saúde preventiva, inclusão social, cidadania e valorização da mulher e jovem no campo.',
+    metaTitulo: 'Famílias Beneficiadas (2030)',
+    metaValor: '40.000+'
   },
   {
     id: 'rs-4',
     titulo: 'Agro de Rondônia mais competitivo e sustentável',
     icone: 'Globe2',
-    descricao: 'Práticas de baixo carbono, rastreabilidade, certificações e expansão comercial nos mercados nacional e global.'
+    descricao: 'Práticas de baixo carbono, rastreabilidade, certificações e expansão comercial nos mercados nacional e global.',
+    metaTitulo: 'Atendimentos PPA 2027–2030',
+    metaValor: '140.489'
   }
 ];
 
@@ -349,7 +359,7 @@ export const OBJETIVOS_ESTRATEGICOS: ObjetivoEstrategico[] = [
   {
     id: 'obj-1',
     codigo: 'OE-01',
-    perspectiva: 'PROCESSOS_INTERNOS',
+    perspectiva: 'CLIENTES',
     titulo: 'Assistência Técnica, Promoção Social e Formação Profissional',
     descricao: 'Fortalecer e ampliar a assistência técnica rural, a promoção social, a capacitação e a formação profissional por meio de uma gestão ágil, moderna e de qualidade nos resultados.',
     unidadeLider: 'DETEC',

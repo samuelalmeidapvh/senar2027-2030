@@ -10,7 +10,9 @@ export interface ResultadoSociedade {
   id: string;
   titulo: string;
   icone: string;
-  descricao?: string;
+  descricao: string;
+  metaTitulo?: string;
+  metaValor?: string;
 }
 
 export interface PilarAprendizado {
@@ -66,6 +68,18 @@ export interface IndicadorKPI {
   historico: HistoricoMedicao[];
   responsavel: string;
   ultimaAtualizacao: string;
+  exec2025?: string;
+  meta2025?: string;
+  exec2026?: string;
+  meta2026?: string;
+  meta2027?: string;
+  exec2027?: string;
+  meta2028?: string;
+  exec2028?: string;
+  meta2029?: string;
+  exec2029?: string;
+  meta2030?: string;
+  exec2030?: string;
 }
 
 export interface ObjetivoEstrategico {
@@ -179,10 +193,18 @@ export interface IndicadorMetaFicha {
   nome: string;
   unidadeMedida: string;
   linhaBase2026: string;
+  meta2025?: string;
+  exec2025?: string;
+  meta2026?: string;
+  exec2026?: string;
   meta2027: string;
+  exec2027?: string;
   meta2028: string;
+  exec2028?: string;
   meta2029: string;
+  exec2029?: string;
   meta2030: string;
+  exec2030?: string;
   fonteVerificacao: string;
 }
 

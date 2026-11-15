@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ObjetivoEstrategico, IndicadorKPI } from '../../types/strategic';
+import { ObjetivoEstrategico, IndicadorKPI, ResultadoSociedade } from '../../types/strategic';
 import { 
   RESULTADOS_SOCIEDADE, 
   PILARES_APRENDIZADO 
@@ -32,34 +32,16 @@ import {
   Trash2,
   RotateCcw,
   Award,
-  Check
+  Check,
+  Home
 } from 'lucide-react';
 import logoFaperonOficial from '../../assets/images/logo_faperon_senar_colorida_oficial.png';
 
-interface ResultadoSociedadeItem {
-  id: string;
-  titulo: string;
-  icone: string;
-  descricao: string;
-  metaTitulo?: string;
-  metaValor?: string;
-}
+type ResultadoSociedadeItem = ResultadoSociedade;
 
 const STORAGE_KEY_RESULTADOS_SOCIEDADE = 'senar_resultados_sociedade_v1';
 
-const DEFAULT_RESULTADOS_SOCIEDADE: ResultadoSociedadeItem[] = RESULTADOS_SOCIEDADE.map((item, idx) =>
-  idx === 0
-    ? {
-        ...item,
-        metaTitulo: 'Produtores Atendidos 2027–2030',
-        metaValor: '42.166'
-      }
-    : {
-        ...item,
-        metaTitulo: '',
-        metaValor: ''
-      }
-);
+const DEFAULT_RESULTADOS_SOCIEDADE: ResultadoSociedadeItem[] = RESULTADOS_SOCIEDADE;
 
 const SOCIEDADE_ICONS = [
   { value: 'Sprout', label: 'Capacitação / Agro' },
@@ -76,6 +58,8 @@ interface MapaEstrategicoBSCProps {
   onSelectObjetivo: (objetivo: ObjetivoEstrategico) => void;
   selectedObjetivoId: string | null;
   onOpenConsolidado2030?: () => void;
+  resultadosSociedadeProp?: ResultadoSociedadeItem[];
+  onChangeResultadosSociedade?: React.Dispatch<React.SetStateAction<ResultadoSociedadeItem[]>>;
 }
 
 export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
@@ -83,12 +67,14 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
   kpis,
   onSelectObjetivo,
   selectedObjetivoId,
-  onOpenConsolidado2030
+  onOpenConsolidado2030,
+  resultadosSociedadeProp,
+  onChangeResultadosSociedade
 }) => {
   const [viewMode, setViewMode] = useState<'interactive' | 'official_image'>('interactive');
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
-  const [resultadosSociedade, setResultadosSociedade] = useState<ResultadoSociedadeItem[]>(() => {
+  const [internalResultadosSociedade, setInternalResultadosSociedade] = useState<ResultadoSociedadeItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_RESULTADOS_SOCIEDADE);
       if (saved) {
@@ -100,6 +86,9 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
     }
     return DEFAULT_RESULTADOS_SOCIEDADE;
   });
+
+  const resultadosSociedade = resultadosSociedadeProp ?? internalResultadosSociedade;
+  const setResultadosSociedade = onChangeResultadosSociedade ?? setInternalResultadosSociedade;
 
   const [isResultadoModalOpen, setIsResultadoModalOpen] = useState(false);
   const [editingResultado, setEditingResultado] = useState<ResultadoSociedadeItem | null>(null);
@@ -113,12 +102,13 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
   });
 
   useEffect(() => {
+    if (resultadosSociedadeProp !== undefined) return;
     try {
-      localStorage.setItem(STORAGE_KEY_RESULTADOS_SOCIEDADE, JSON.stringify(resultadosSociedade));
+      localStorage.setItem(STORAGE_KEY_RESULTADOS_SOCIEDADE, JSON.stringify(internalResultadosSociedade));
     } catch {
       // ignore storage errors
     }
-  }, [resultadosSociedade]);
+  }, [internalResultadosSociedade, resultadosSociedadeProp]);
 
   const renderSociedadeIcon = (icone: string, idx: number) => {
     switch (icone) {
@@ -335,10 +325,13 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
             </div>
           </div>
 
-          {/* 1. PERSPECTIVA SOCIEDADE: RESULTADOS PARA A SOCIEDADE */}
-          <div className="rounded-2xl border border-emerald-300 bg-white shadow-sm overflow-hidden">
+          {/* 1. PERSPECTIVA SOCIEDADE */}
+          <div
+            id="resultados-sociedade-bsc"
+            className="rounded-2xl border border-emerald-300 bg-white shadow-sm overflow-hidden scroll-mt-24"
+          >
             <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-              {/* Ribbon Esquerdo: Perspectiva Sociedade */}
+              {/* Ribbon Esquerdo: Perspectiva Sociedade (mesmo padrão das demais perspectivas, mantendo a cor verde) */}
               <div className="lg:col-span-3 p-5 bg-gradient-to-r from-emerald-800 via-[#006837] to-emerald-700 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-emerald-600/50">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 shadow-inner">
@@ -356,106 +349,86 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
                 </div>
                 <div className="mt-4 pt-3 border-t border-white/20 hidden lg:block">
                   <span className="text-[11px] font-mono text-emerald-200 font-medium">
-                    {resultadosSociedade.length} {resultadosSociedade.length === 1 ? 'Entrega de Impacto Mensurável' : 'Entregas de Impacto Mensurável'}
+                    Impacto Institucional 2030
                   </span>
                 </div>
               </div>
 
-              {/* Conteúdo Alinhado: Resultados para a Sociedade (Editável) */}
-              <div className="lg:col-span-9 p-4 sm:p-5 flex flex-col justify-center bg-emerald-50/20">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#006837] bg-emerald-100/90 px-3 py-1 rounded-full border border-emerald-200/80">
-                    RESULTADOS PARA A SOCIEDADE
+              {/* Conteúdo Alinhado: Perspectiva Sociedade */}
+              <div className="lg:col-span-9 p-5 sm:p-6 bg-white flex flex-col justify-center">
+                <div className="flex items-start justify-between gap-4">
+                  <h4 className="text-base sm:text-lg font-black text-slate-900 uppercase tracking-tight leading-snug">
+                    GERAR VALOR E PROMOVER A TRANSFORMAÇÃO SOCIOECONÔMICA E SUSTENTÁVEL DO MEIO RURAL
+                  </h4>
+                  <span className="text-xl sm:text-2xl font-bold text-[#006837] font-mono tabular-nums shrink-0">
+                    00
                   </span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-slate-500 font-medium hidden md:inline">
-                      Entregas e Impactos para o Homem do Campo
-                    </span>
-                    <button
-                      type="button"
-                      onClick={openNewResultadoModal}
-                      className="px-2.5 py-1 rounded-lg bg-[#006837] hover:bg-[#004d26] text-white text-[11px] font-semibold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Incluir</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleResetResultados}
-                      title="Restaurar resultados padrão"
-                      className="p-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 transition-colors cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                    </button>
+                </div>
+                <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                  Contribuir para transformar conhecimento em produtividade, renda, qualidade de vida e desenvolvimento sustentável para Rondônia.
+                </p>
+
+                <div className="my-5 border-t border-slate-200/80" />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="w-5 h-5 text-[#006837] shrink-0" />
+                      <h5 className="text-sm sm:text-base font-bold text-slate-900">
+                        Capacitação
+                      </h5>
+                    </div>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Produtores mais preparados e qualificados.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-[#006837] shrink-0" />
+                      <h5 className="text-sm sm:text-base font-bold text-slate-900">
+                        Produtividade e renda
+                      </h5>
+                    </div>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Mais eficiência e prosperidade no campo.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Home className="w-5 h-5 text-[#006837] shrink-0" />
+                      <h5 className="text-sm sm:text-base font-bold text-slate-900">
+                        Qualidade de vida
+                      </h5>
+                    </div>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Famílias rurais com melhores condições de vida.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Sprout className="w-5 h-5 text-[#006837] shrink-0" />
+                      <h5 className="text-sm sm:text-base font-bold text-slate-900">
+                        Competitividade Sustentável
+                      </h5>
+                    </div>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Agronegócio competitivo e sustentável.
+                    </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {resultadosSociedade.map((res, idx) => (
-                    <div
-                      key={res.id}
-                      className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all group flex flex-col justify-between relative"
-                    >
-                      <div>
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#006837] flex items-center justify-center group-hover:scale-110 transition-transform">
-                              {renderSociedadeIcon(res.icone, idx)}
-                            </div>
-                            <span className="text-[10px] font-mono font-bold text-slate-400">#0{idx + 1}</span>
-                          </div>
+                <div className="my-5 border-t border-slate-200/80" />
 
-                          {/* Meta no canto superior direito */}
-                          <div className="flex items-start gap-1 min-w-0">
-                            {(res.metaTitulo || res.metaValor) && (
-                              <div className="text-right bg-emerald-50 border border-emerald-200/90 rounded-lg px-2 py-1 leading-tight">
-                                {res.metaTitulo && (
-                                  <span className="text-[9px] font-mono font-bold text-emerald-800 block leading-tight">
-                                    {res.metaTitulo}
-                                  </span>
-                                )}
-                                {res.metaValor && (
-                                  <span className="text-xs font-black font-mono text-[#006837] tabular-nums block">
-                                    {res.metaValor}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <h5 className="text-xs font-bold text-slate-800 leading-snug group-hover:text-emerald-900">
-                          {res.titulo}
-                        </h5>
-                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                          {res.descricao}
-                        </p>
-                      </div>
-
-                      {/* Ações de Edição (Alterar / Excluir) */}
-                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditResultadoModal(res)}
-                          className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/70 inline-flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Alterar card e meta"
-                        >
-                          <Edit3 className="w-2.5 h-2.5" />
-                          <span>Editar</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteResultado(res.id)}
-                          disabled={resultadosSociedade.length <= 1}
-                          className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/70 disabled:opacity-40 inline-flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Excluir resultado"
-                        >
-                          <Trash2 className="w-2.5 h-2.5" />
-                          <span>Excluir</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                <div>
+                  <h5 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-tight">
+                    IMPACTO INSTITUCIONAL 2030
+                  </h5>
+                  <p className="mt-1 text-sm text-slate-700 leading-relaxed">
+                    Mais conhecimento, mais produtividade, mais renda, melhor qualidade de vida e um agro rondoniense mais forte e sustentável.
+                  </p>
                 </div>
               </div>
             </div>

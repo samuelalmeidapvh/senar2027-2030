@@ -5,15 +5,19 @@ import {
   PlanoAcao5W2H, 
   UsuarioAutenticado,
   InsightEstrategicoIA,
-  SiglaUnidade
+  SiglaUnidade,
+  FichaTecnicaObjetivo,
+  ResultadoSociedade
 } from './types/strategic';
 import { 
   INDICADORES_KPIS, 
   OBJETIVOS_ESTRATEGICOS, 
   PLANOS_ACAO,
   USUARIOS_DEMO,
-  INSIGHT_INICIAL_ESTRATEGICO
+  INSIGHT_INICIAL_ESTRATEGICO,
+  RESULTADOS_SOCIEDADE
 } from './data/initialStrategicData';
+import { FICHAS_TECNICAS_INICIAIS } from './data/fichasTecnicasData';
 
 import { HeaderFixed } from './components/layout/HeaderFixed';
 import { FooterInstitutional } from './components/layout/FooterInstitutional';
@@ -21,8 +25,11 @@ import { ZebraSection } from './components/layout/ZebraSection';
 
 import { HeroProposito } from './components/sections/HeroProposito';
 import { MapaEstrategicoBSC } from './components/sections/MapaEstrategicoBSC';
-import { FaixaMetricasEstrategicas } from './components/sections/FaixaMetricasEstrategicas';
-import { MapaRondoniaOpenRequest } from './components/modals/MapaRondoniaModal';
+import {
+  MapaRondoniaModal,
+  MapaRondoniaOpenRequest,
+  MapaRondoniaSection
+} from './components/modals/MapaRondoniaModal';
 import { FichasTecnicasObjetivosBSC } from './components/sections/FichasTecnicasObjetivosBSC';
 import { KpiDashboard } from './components/sections/KpiDashboard';
 import { PainelGeminiAI } from './components/sections/PainelGeminiAI';
@@ -33,9 +40,77 @@ import { AuthModal } from './components/modals/AuthModal';
 import { CmsActionModal } from './components/modals/CmsActionModal';
 import { KpiEditModal } from './components/modals/KpiEditModal';
 
+const FICHAS_STORAGE_KEY = 'senar_fichas_tecnicas_objetivos_v3';
+const KPIS_PAINEL_STORAGE_KEY = 'senar_kpis_painel_v1';
+const OBJETIVOS_STORAGE_KEY = 'senar_objetivos_bsc_v1';
+const RESULTADOS_SOCIEDADE_STORAGE_KEY = 'senar_resultados_sociedade_v1';
+
 export default function App() {
-  const [objetivos, setObjetivos] = useState<ObjetivoEstrategico[]>(OBJETIVOS_ESTRATEGICOS);
-  const [kpis, setKpis] = useState<IndicadorKPI[]>(INDICADORES_KPIS);
+  const [objetivos, setObjetivos] = useState<ObjetivoEstrategico[]>(() => {
+    try {
+      const saved = localStorage.getItem(OBJETIVOS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((o: ObjetivoEstrategico) =>
+            o.id === 'obj-1' || o.codigo === 'OE-01'
+              ? { ...o, perspectiva: 'CLIENTES' }
+              : o
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar objetivos salvos, usando padrão:', e);
+    }
+    return OBJETIVOS_ESTRATEGICOS;
+  });
+  const [kpis, setKpis] = useState<IndicadorKPI[]>(() => {
+    try {
+      const saved = localStorage.getItem(KPIS_PAINEL_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar KPIs salvos, usando dados iniciais:', e);
+    }
+    return INDICADORES_KPIS;
+  });
+  const [fichas, setFichas] = useState<FichaTecnicaObjetivo[]>(() => {
+    try {
+      const saved = localStorage.getItem(FICHAS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar fichas salvas, usando dados oficiais:', e);
+    }
+    return FICHAS_TECNICAS_INICIAIS;
+  });
+  const [resultadosSociedade, setResultadosSociedade] = useState<ResultadoSociedade[]>(() => {
+    try {
+      const saved = localStorage.getItem(RESULTADOS_SOCIEDADE_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Hidrata metas padrão nos cards que estavam sem metaValor definida
+          return parsed.map((item: ResultadoSociedade) => {
+            const def = RESULTADOS_SOCIEDADE.find(d => d.id === item.id);
+            if (!def) return item;
+            return {
+              ...item,
+              metaTitulo: item.metaTitulo?.trim() ? item.metaTitulo : def.metaTitulo,
+              metaValor: item.metaValor?.trim() ? item.metaValor : def.metaValor
+            };
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar resultados da sociedade, usando padrão:', e);
+    }
+    return RESULTADOS_SOCIEDADE;
+  });
   const [planos, setPlanos] = useState<PlanoAcao5W2H[]>(PLANOS_ACAO);
 
   // Auth User: Default to Dr. Emerson Lira (Superintendente) for immediate CMS testing
@@ -49,18 +124,54 @@ export default function App() {
   const [newPlanoUnidade, setNewPlanoUnidade] = useState<SiglaUnidade>('DETEC');
   const [editingKpi, setEditingKpi] = useState<IndicadorKPI | null>(null);
   const [consolidadoRequest, setConsolidadoRequest] = useState<MapaRondoniaOpenRequest | null>(null);
+  const [isMapaModalOpen, setIsMapaModalOpen] = useState<boolean>(false);
 
   // AI Insights State - Initialized with baseline diagnostic
   const [aiInsight, setAiInsight] = useState<InsightEstrategicoIA | null>(INSIGHT_INICIAL_ESTRATEGICO);
   const [loadingAi, setLoadingAi] = useState<boolean>(false);
 
-  // Initial Data Fetch
+  // Persist Fichas Técnicas & Panel KPIs
   useEffect(() => {
+    try {
+      localStorage.setItem(FICHAS_STORAGE_KEY, JSON.stringify(fichas));
+    } catch (e) {
+      console.error('Erro ao salvar fichas no localStorage:', e);
+    }
+  }, [fichas]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(KPIS_PAINEL_STORAGE_KEY, JSON.stringify(kpis));
+    } catch (e) {
+      console.error('Erro ao salvar KPIs do painel no localStorage:', e);
+    }
+  }, [kpis]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(OBJETIVOS_STORAGE_KEY, JSON.stringify(objetivos));
+    } catch (e) {
+      console.error('Erro ao salvar objetivos no localStorage:', e);
+    }
+  }, [objetivos]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(RESULTADOS_SOCIEDADE_STORAGE_KEY, JSON.stringify(resultadosSociedade));
+    } catch (e) {
+      console.error('Erro ao salvar resultados da sociedade no localStorage:', e);
+    }
+  }, [resultadosSociedade]);
+
+  // Initial Data Fetch (preserva alterações locais já salvas pelo usuário)
+  useEffect(() => {
+    const hasLocalKpis = Boolean(localStorage.getItem(KPIS_PAINEL_STORAGE_KEY));
+    const hasLocalObjetivos = Boolean(localStorage.getItem(OBJETIVOS_STORAGE_KEY));
     fetch('/api/strategic-data')
       .then(res => res.json())
       .then(data => {
-        if (data.objetivos) setObjetivos(data.objetivos);
-        if (data.kpis) setKpis(data.kpis);
+        if (data.objetivos && !hasLocalObjetivos) setObjetivos(data.objetivos);
+        if (data.kpis && !hasLocalKpis) setKpis(data.kpis);
         if (data.planosAcao) setPlanos(data.planosAcao);
       })
       .catch(err => {
@@ -169,6 +280,53 @@ export default function App() {
     }
   };
 
+  const handleSaveComplementaryKpi = (
+    kpi: IndicadorKPI,
+    isNew?: boolean,
+    targetObjetivoId?: string
+  ) => {
+    setKpis(prev => {
+      if (isNew || !prev.some(item => item.id === kpi.id)) {
+        return [kpi, ...prev];
+      }
+      return prev.map(item => (item.id === kpi.id ? kpi : item));
+    });
+
+    const objIdToLink = targetObjetivoId || kpi.objetivoId;
+    if (isNew && objIdToLink) {
+      setObjetivos(prev =>
+        prev.map(o =>
+          o.id === objIdToLink && !o.kpisAssociados.includes(kpi.id)
+            ? { ...o, kpisAssociados: [...o.kpisAssociados, kpi.id] }
+            : o
+        )
+      );
+      setSelectedObjetivo(prev =>
+        prev && prev.id === objIdToLink && !prev.kpisAssociados.includes(kpi.id)
+          ? { ...prev, kpisAssociados: [...prev.kpisAssociados, kpi.id] }
+          : prev
+      );
+    }
+  };
+
+  const handleDeleteComplementaryKpi = (kpiId: string) => {
+    setKpis(prev => prev.filter(item => item.id !== kpiId));
+    setObjetivos(prev =>
+      prev.map(o => ({
+        ...o,
+        kpisAssociados: o.kpisAssociados.filter(id => id !== kpiId)
+      }))
+    );
+    setSelectedObjetivo(prev =>
+      prev
+        ? {
+            ...prev,
+            kpisAssociados: prev.kpisAssociados.filter(id => id !== kpiId)
+          }
+        : null
+    );
+  };
+
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -198,9 +356,6 @@ export default function App() {
           onOpenGeminiClick={() => scrollToSection('inteligencia-ia')}
         />
 
-        {/* FAIXA DE IMPACTO ESTRATÉGICO & MÉTRICAS (Impacto Institucional Comprovado) */}
-        <FaixaMetricasEstrategicas externalOpenRequest={consolidadoRequest} />
-
         {/* CHAPTER 2: Mapa Estratégico Visual Interativo BSC (Fundo Verde Suave Institucional) */}
         <ZebraSection id="mapa-bsc" variant="tint">
           <MapaEstrategicoBSC
@@ -208,23 +363,40 @@ export default function App() {
             kpis={kpis}
             selectedObjetivoId={selectedObjetivo?.id || null}
             onSelectObjetivo={(obj) => setSelectedObjetivo(obj)}
-            onOpenConsolidado2030={() =>
-              setConsolidadoRequest({ ano: '2030', focusResumo: true, nonce: Date.now() })
-            }
+            onOpenConsolidado2030={() => {
+              setConsolidadoRequest({ ano: '2030', focusResumo: true, nonce: Date.now() });
+              setIsMapaModalOpen(true);
+            }}
+            resultadosSociedadeProp={resultadosSociedade}
+            onChangeResultadosSociedade={setResultadosSociedade}
           />
         </ZebraSection>
 
+        {/* MAPA DE RONDÔNIA & SENAR EM NÚMEROS (SEÇÃO INLINE) */}
+        <MapaRondoniaSection
+          fichas={fichas}
+          onChangeFichas={setFichas}
+        />
+
         {/* ESTRUTURA EDITÁVEL: Fichas Técnicas & Planos de Ação por Objetivo Estratégico do BSC */}
         <ZebraSection id="fichas-tecnicas-objetivos" variant="gray">
-          <FichasTecnicasObjetivosBSC usuarioAtivo={usuarioAtivo} />
+          <FichasTecnicasObjetivosBSC
+            usuarioAtivo={usuarioAtivo}
+            fichasProp={fichas}
+            onChangeFichas={setFichas}
+          />
         </ZebraSection>
 
         {/* CHAPTER 5: Indicadores de Desempenho / KPIs */}
         <ZebraSection id="kpis-dashboard" variant="white">
           <KpiDashboard
+            fichas={fichas}
+            onChangeFichas={setFichas}
             kpis={kpis}
+            objetivos={objetivos}
             usuarioAtivo={usuarioAtivo}
-            onEditKpi={(kpi) => setEditingKpi(kpi)}
+            onSaveComplementaryKpi={handleSaveComplementaryKpi}
+            onDeleteComplementaryKpi={handleDeleteComplementaryKpi}
           />
         </ZebraSection>
 
@@ -249,11 +421,19 @@ export default function App() {
 
       {/* Interactive Popover Modal: Objetivo Estratégico & Live KPIs */}
       <ObjetivoPopoverModal
-        objetivo={selectedObjetivo}
+        objetivo={
+          selectedObjetivo
+            ? objetivos.find(o => o.id === selectedObjetivo.id) || selectedObjetivo
+            : null
+        }
         kpis={kpis}
         planos={planos}
+        fichas={fichas}
+        onChangeFichas={setFichas}
         onClose={() => setSelectedObjetivo(null)}
         onNavigateToPlanos={() => scrollToSection('fichas-tecnicas-objetivos')}
+        onSaveKpi={handleSaveComplementaryKpi}
+        onDeleteKpi={handleDeleteComplementaryKpi}
       />
 
       {/* Auth Modal: RBAC Role Switching */}
@@ -281,6 +461,15 @@ export default function App() {
         kpi={editingKpi}
         onClose={() => setEditingKpi(null)}
         onSave={handleSaveKpiMedicao}
+      />
+
+      {/* Mapa de Rondônia Modal (Consolidado 2030 trigger) */}
+      <MapaRondoniaModal
+        isOpen={isMapaModalOpen}
+        onClose={() => setIsMapaModalOpen(false)}
+        initialRequest={consolidadoRequest}
+        fichas={fichas}
+        onChangeFichas={setFichas}
       />
 
     </div>
