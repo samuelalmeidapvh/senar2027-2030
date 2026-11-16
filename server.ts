@@ -1,17 +1,17 @@
 import express, { Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { 
-  UNIDADES_ORGANIZACIONAIS, 
-  PROCESSOS_FINALISTICOS, 
-  OBJETIVOS_ESTRATEGICOS, 
-  INDICADORES_KPIS, 
-  PLANOS_ACAO,
-  USUARIOS_DEMO,
-  ESPECIFICACOES_TECNICAS
-} from './src/data/initialStrategicData.ts';
-import { PlanoAcao5W2H, IndicadorKPI, ObjetivoEstrategico } from './src/types/strategic.ts';
+  getDatabase, 
+  saveDatabase, 
+  UserAccount, 
+  SiteContent 
+} from './serverDb.ts';
+import { ESPECIFICACOES_TECNICAS } from './src/data/initialStrategicData.ts';
+import { PlanoAcao5W2H, IndicadorKPI } from './src/types/strategic.ts';
 
 dotenv.config();
 
@@ -20,34 +20,43 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 app.use(express.json());
 
-// In-memory data state for full interactive CRUD
-let stateObjetivos = [...OBJETIVOS_ESTRATEGICOS];
-let stateKpis = [...INDICADORES_KPIS];
-let statePlanos = [...PLANOS_ACAO];
-let stateProcessos = [...PROCESSOS_FINALISTICOS];
+// Helper JWT simulation using crypto
+const JWT_SECRET = process.env.JWT_SECRET || 'senar-ro-strategic-planning-2027-2030-secret-key';
 
-// Simple JWT generation & validation simulation
-function createSimulatedJwt(user: any) {
+function createJwt(user: UserAccount) {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(JSON.stringify({
     sub: user.id,
+    id: user.id,
     name: user.nome,
     email: user.email,
     role: user.role,
     unidade: user.unidade,
+    cargo: user.cargo,
+    permissoes: user.permissoes,
     iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600 * 24 // 24 hours
+    exp: Math.floor(Date.now() / 1000) + 3600 * 24 * 7 // 7 days
   })).toString('base64url');
-  const signature = Buffer.from(`signature_${user.id}_${Date.now()}`).toString('base64url');
+  
+  const hmac = crypto.createHmac('sha256', JWT_SECRET);
+  hmac.update(`${header}.${payload}`);
+  const signature = hmac.digest('base64url');
+
   return `${header}.${payload}.${signature}`;
 }
 
-function verifySimulatedJwt(token: string) {
+function verifyJwt(token: string): any {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-    return payload;
+    const [header, payload, signature] = parts;
+    const hmac = crypto.createHmac('sha256', JWT_SECRET);
+    hmac.update(`${header}.${payload}`);
+    const expectedSig = hmac.digest('base64url');
+    if (signature !== expectedSig) return null;
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (data.exp && data.exp < Math.floor(Date.now() / 1000)) return null;
+    return data;
   } catch (e) {
     return null;
   }
@@ -60,7 +69,7 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
     return res.status(401).json({ error: 'Token de autenticação não fornecido ou inválido' });
   }
   const token = authHeader.substring(7);
-  const decoded = verifySimulatedJwt(token);
+  const decoded = verifyJwt(token);
   if (!decoded) {
     return res.status(401).json({ error: 'Token expirado ou inválido' });
   }
@@ -68,50 +77,323 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-// ======================== API ROUTES ========================
+const requirePermission = (permission: 'EDIT_PAGE' | 'MANAGE_USERS' | 'MANAGE_KPIS') => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
+    const hasPerm = user.role === 'ADMIN' || (user.permissoes && user.permissoes.includes(permission));
+    if (!hasPerm) {
+      return res.status(403).json({ error: `Acesso negado: permissão necessária '${permission}'` });
+    }
+    next();
+  };
+};
+
+// ======================== AUTHENTICATION API ========================
+
+// 1. Login com Email e Senha
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
+  }
+
+  const db = getDatabase();
+  const user = db.users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+  if (!user) {
+    return res.status(401).json({ error: 'Credenciais inválidas. Verifique seu e-mail e senha.' });
+  }
+
+  const isMatch = bcrypt.compareSync(password, user.passwordHash);
+  if (!isMatch) {
+    return res.status(401).json({ error: 'Credenciais inválidas. Verifique seu e-mail e senha.' });
+  }
+
+  const token = createJwt(user);
+  const { passwordHash: _, resetToken: __, resetTokenExpires: ___, ...userSafe } = user;
+
+  res.json({
+    status: 'success',
+    token,
+    usuario: userSafe,
+    canEdit: user.role === 'ADMIN' || user.permissoes.includes('EDIT_PAGE')
+  });
+});
+
+// 2. Verificar Sessão Atual
+app.get('/api/auth/me', requireAuth, (req: Request, res: Response) => {
+  const db = getDatabase();
+  const decoded = (req as any).user;
+  const user = db.users.find(u => u.id === decoded.sub || u.id === decoded.id);
+  if (!user) {
+    return res.status(404).json({ error: 'Usuário não encontrado' });
+  }
+  const { passwordHash: _, resetToken: __, resetTokenExpires: ___, ...userSafe } = user;
+  res.json({
+    status: 'success',
+    usuario: userSafe,
+    canEdit: user.role === 'ADMIN' || user.permissoes.includes('EDIT_PAGE')
+  });
+});
+
+// 3. Solicitar Redefinição de Senha
+app.post('/api/auth/forgot-password', (req: Request, res: Response) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'E-mail é obrigatório' });
+  }
+
+  const db = getDatabase();
+  const userIndex = db.users.findIndex(u => u.email.toLowerCase() === email.trim().toLowerCase());
+  if (userIndex === -1) {
+    // Return friendly message even if email not found for security
+    return res.json({ 
+      status: 'success', 
+      message: 'Se o e-mail estiver cadastrado, um código de redefinição foi gerado com sucesso.' 
+    });
+  }
+
+  // Gera token de 6 dígitos numéricos fácil para demonstração ou token seguro
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+  db.users[userIndex].resetToken = resetCode;
+  db.users[userIndex].resetTokenExpires = Date.now() + 3600000; // 1 hora
+  saveDatabase(db);
+
+  res.json({
+    status: 'success',
+    message: 'Código de redefinição gerado com sucesso!',
+    // Para conveniência do ambiente local/demo, retornamos o código na resposta
+    resetCodeSimulado: resetCode,
+    email: db.users[userIndex].email
+  });
+});
+
+// 4. Concluir Redefinição de Senha
+app.post('/api/auth/reset-password', (req: Request, res: Response) => {
+  const { email, resetCode, newPassword } = req.body;
+  if (!email || !resetCode || !newPassword) {
+    return res.status(400).json({ error: 'E-mail, código de redefinição e nova senha são obrigatórios.' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 caracteres.' });
+  }
+
+  const db = getDatabase();
+  const userIndex = db.users.findIndex(u => u.email.toLowerCase() === email.trim().toLowerCase());
+  if (userIndex === -1) {
+    return res.status(400).json({ error: 'Usuário não encontrado.' });
+  }
+
+  const user = db.users[userIndex];
+  if (!user.resetToken || user.resetToken !== resetCode.trim()) {
+    return res.status(400).json({ error: 'Código de redefinição inválido ou incorreto.' });
+  }
+
+  if (user.resetTokenExpires && user.resetTokenExpires < Date.now()) {
+    return res.status(400).json({ error: 'Código de redefinição expirado. Solicite um novo.' });
+  }
+
+  // Atualizar senha
+  const salt = bcrypt.genSaltSync(10);
+  user.passwordHash = bcrypt.hashSync(newPassword, salt);
+  delete user.resetToken;
+  delete user.resetTokenExpires;
+  saveDatabase(db);
+
+  res.json({
+    status: 'success',
+    message: 'Senha redefinida com sucesso! Você já pode realizar login.'
+  });
+});
+
+// ======================== GESTÃO DE USUÁRIOS (ADMIN) ========================
+
+app.get('/api/admin/users', requireAuth, requirePermission('MANAGE_USERS'), (_req: Request, res: Response) => {
+  const db = getDatabase();
+  const usersSafe = db.users.map(({ passwordHash: _, resetToken: __, resetTokenExpires: ___, ...rest }) => rest);
+  res.json({ status: 'success', users: usersSafe });
+});
+
+app.post('/api/admin/users', requireAuth, requirePermission('MANAGE_USERS'), (req: Request, res: Response) => {
+  const { nome, email, password, role, unidade, cargo, permissoes } = req.body;
+  if (!nome || !email || !password || !role) {
+    return res.status(400).json({ error: 'Campos nome, e-mail, senha e role são obrigatórios.' });
+  }
+
+  const db = getDatabase();
+  if (db.users.some(u => u.email.toLowerCase() === email.trim().toLowerCase())) {
+    return res.status(400).json({ error: 'Já existe um usuário com este e-mail.' });
+  }
+
+  const salt = bcrypt.genSaltSync(10);
+  const newUser: UserAccount = {
+    id: `usr-${Date.now()}`,
+    nome: nome.trim(),
+    email: email.trim().toLowerCase(),
+    passwordHash: bcrypt.hashSync(password, salt),
+    role: role as 'ADMIN' | 'EDITOR' | 'VIEWER',
+    unidade: (unidade || 'SUPERINTENDENCIA').toUpperCase(),
+    cargo: cargo || 'Colaborador SENAR-RO',
+    permissoes: Array.isArray(permissoes) && permissoes.length > 0 
+      ? permissoes 
+      : (role === 'ADMIN' ? ['VIEW', 'EDIT_PAGE', 'MANAGE_USERS', 'MANAGE_KPIS'] : (role === 'EDITOR' ? ['VIEW', 'EDIT_PAGE', 'MANAGE_KPIS'] : ['VIEW'])),
+    criadoEm: new Date().toISOString()
+  };
+
+  db.users.push(newUser);
+  saveDatabase(db);
+
+  const { passwordHash: _, ...userSafe } = newUser;
+  res.status(201).json({ status: 'success', user: userSafe });
+});
+
+app.put('/api/admin/users/:id', requireAuth, requirePermission('MANAGE_USERS'), (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { nome, email, role, unidade, cargo, permissoes, password } = req.body;
+
+  const db = getDatabase();
+  const index = db.users.findIndex(u => u.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Usuário não encontrado.' });
+  }
+
+  if (nome) db.users[index].nome = nome.trim();
+  if (email) db.users[index].email = email.trim().toLowerCase();
+  if (role) db.users[index].role = role;
+  if (unidade) db.users[index].unidade = unidade;
+  if (cargo) db.users[index].cargo = cargo;
+  if (Array.isArray(permissoes)) db.users[index].permissoes = permissoes;
+
+  if (password && password.trim().length >= 6) {
+    const salt = bcrypt.genSaltSync(10);
+    db.users[index].passwordHash = bcrypt.hashSync(password.trim(), salt);
+  }
+
+  saveDatabase(db);
+  const { passwordHash: _, resetToken: __, ...userSafe } = db.users[index];
+  res.json({ status: 'success', user: userSafe });
+});
+
+app.delete('/api/admin/users/:id', requireAuth, requirePermission('MANAGE_USERS'), (req: Request, res: Response) => {
+  const { id } = req.params;
+  const db = getDatabase();
+  const user = db.users.find(u => u.id === id);
+  if (!user) {
+    return res.status(404).json({ error: 'Usuário não encontrado.' });
+  }
+  if (user.role === 'ADMIN' && db.users.filter(u => u.role === 'ADMIN').length <= 1) {
+    return res.status(400).json({ error: 'Não é possível excluir o único administrador do sistema.' });
+  }
+
+  db.users = db.users.filter(u => u.id !== id);
+  saveDatabase(db);
+  res.json({ status: 'success', message: 'Usuário removido com sucesso.' });
+});
+
+// ======================== CONTEÚDO EDITÁVEL DO SITE ========================
+
+// 1. Obter Todo o Conteúdo do Site (Público ou Autenticado)
+app.get('/api/site/content', (_req: Request, res: Response) => {
+  const db = getDatabase();
+  res.json({
+    status: 'success',
+    lastUpdated: db.lastUpdated,
+    content: db.content
+  });
+});
+
+// 2. Salvar Atualização Global ou Parcial do Conteúdo do Site (Exige EDIT_PAGE)
+app.put('/api/site/content', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
+  const db = getDatabase();
+  const updates = req.body; // e.g. { proposito, resultadosSociedade, objetivos, kpis, ... }
+
+  if (!updates || typeof updates !== 'object') {
+    return res.status(400).json({ error: 'Payload de atualização inválido' });
+  }
+
+  if (updates.proposito) {
+    db.content.proposito = { ...db.content.proposito, ...updates.proposito };
+  }
+  if (Array.isArray(updates.resultadosSociedade)) {
+    db.content.resultadosSociedade = updates.resultadosSociedade;
+  }
+  if (Array.isArray(updates.pilaresAprendizado)) {
+    db.content.pilaresAprendizado = updates.pilaresAprendizado;
+  }
+  if (Array.isArray(updates.objetivos)) {
+    db.content.objetivos = updates.objetivos;
+  }
+  if (Array.isArray(updates.kpis)) {
+    db.content.kpis = updates.kpis;
+  }
+  if (Array.isArray(updates.planosAcao)) {
+    db.content.planosAcao = updates.planosAcao;
+  }
+  if (Array.isArray(updates.processosFinalisticos)) {
+    db.content.processosFinalisticos = updates.processosFinalisticos;
+  }
+  if (Array.isArray(updates.fichasTecnicas)) {
+    db.content.fichasTecnicas = updates.fichasTecnicas;
+  }
+
+  saveDatabase(db);
+  res.json({
+    status: 'success',
+    message: 'Conteúdo da página atualizado e persistido com sucesso no banco local.',
+    lastUpdated: db.lastUpdated,
+    content: db.content
+  });
+});
+
+// 3. Atualizar Seção Específica (ex: Propósito)
+app.patch('/api/site/proposito', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
+  const db = getDatabase();
+  db.content.proposito = { ...db.content.proposito, ...req.body };
+  saveDatabase(db);
+  res.json({ status: 'success', proposito: db.content.proposito });
+});
+
+// ======================== ROTAS LEGADAS COMPATÍVEIS ========================
 
 // 1. Get All Strategic Data
 app.get('/api/strategic-data', (_req: Request, res: Response) => {
+  const db = getDatabase();
   res.json({
     status: 'success',
-    timestamp: new Date().toISOString(),
+    timestamp: db.lastUpdated,
     ciclo: 'Planejamento Estratégico 2027-2030 SENAR-AR/RO',
-    unidades: UNIDADES_ORGANIZACIONAIS,
-    processosFinalisticos: stateProcessos,
+    unidades: db.content.unidades,
+    processosFinalisticos: db.content.processosFinalisticos,
     perspectivas: ['SOCIEDADE', 'CLIENTES', 'PROCESSOS_INTERNOS', 'APRENDIZADO_CRESCIMENTO', 'FINANCEIRA', 'CLIENTES_SOCIEDADE'],
-    objetivos: stateObjetivos,
-    kpis: stateKpis,
-    planosAcao: statePlanos
+    objetivos: db.content.objetivos,
+    kpis: db.content.kpis,
+    planosAcao: db.content.planosAcao
   });
 });
 
 // 1.1 Cadeia de Valor - Processos Finalísticos CRUD (CMS)
 app.get('/api/cadeia-valor/processos', (_req: Request, res: Response) => {
+  const db = getDatabase();
   res.json({
     status: 'success',
-    total: stateProcessos.length,
-    processos: stateProcessos
+    total: db.content.processosFinalisticos.length,
+    processos: db.content.processosFinalisticos
   });
 });
 
-app.get('/api/cadeia-valor/processos/:id', (req: Request, res: Response) => {
-  const { id } = req.params;
-  const proc = stateProcessos.find(p => p.id === id || p.codigo.toLowerCase() === id.toLowerCase() || p.sigla.toLowerCase() === id.toLowerCase());
-  if (!proc) {
-    return res.status(404).json({ error: 'Processo finalístico não encontrado na Cadeia de Valor' });
-  }
-  res.json({ status: 'success', processo: proc });
-});
-
-app.post('/api/cadeia-valor/processos', (req: Request, res: Response) => {
+app.post('/api/cadeia-valor/processos', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
   const payload = req.body;
   if (!payload.nome || !payload.sigla) {
     return res.status(400).json({ error: 'Campos nome e sigla são obrigatórios' });
   }
 
+  const db = getDatabase();
   const newProcesso: any = {
     id: `proc-${Date.now()}`,
-    codigo: payload.codigo || (payload.categoria === 'GESTAO_SUPORTE' ? `PG-0${stateProcessos.filter((p: any) => p.categoria === 'GESTAO_SUPORTE').length + 1}` : `PF-0${stateProcessos.filter((p: any) => p.categoria !== 'GESTAO_SUPORTE').length + 1}`),
+    codigo: payload.codigo || (payload.categoria === 'GESTAO_SUPORTE' ? `PG-0${db.content.processosFinalisticos.filter((p: any) => p.categoria === 'GESTAO_SUPORTE').length + 1}` : `PF-0${db.content.processosFinalisticos.filter((p: any) => p.categoria !== 'GESTAO_SUPORTE').length + 1}`),
     sigla: (payload.sigla || 'PROC').toUpperCase(),
     nome: payload.nome,
     categoria: payload.categoria || 'FINALISTICO',
@@ -131,77 +413,57 @@ app.post('/api/cadeia-valor/processos', (req: Request, res: Response) => {
     icone: payload.icone || 'Award'
   };
 
-  stateProcessos = [...stateProcessos, newProcesso];
+  db.content.processosFinalisticos.push(newProcesso);
+  saveDatabase(db);
   res.status(201).json({ status: 'success', processo: newProcesso });
 });
 
-app.put('/api/cadeia-valor/processos/:id', (req: Request, res: Response) => {
+app.put('/api/cadeia-valor/processos/:id', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
   const { id } = req.params;
-  const index = stateProcessos.findIndex(p => p.id === id);
+  const db = getDatabase();
+  const index = db.content.processosFinalisticos.findIndex(p => p.id === id);
   if (index === -1) {
     return res.status(404).json({ error: 'Processo finalístico não encontrado' });
   }
 
-  stateProcessos[index] = {
-    ...stateProcessos[index],
+  db.content.processosFinalisticos[index] = {
+    ...db.content.processosFinalisticos[index],
     ...req.body
   };
 
-  res.json({ status: 'success', processo: stateProcessos[index] });
+  saveDatabase(db);
+  res.json({ status: 'success', processo: db.content.processosFinalisticos[index] });
 });
 
-app.delete('/api/cadeia-valor/processos/:id', (req: Request, res: Response) => {
+app.delete('/api/cadeia-valor/processos/:id', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
   const { id } = req.params;
-  const initialLength = stateProcessos.length;
-  stateProcessos = stateProcessos.filter(p => p.id !== id);
+  const db = getDatabase();
+  const initialLen = db.content.processosFinalisticos.length;
+  db.content.processosFinalisticos = db.content.processosFinalisticos.filter(p => p.id !== id);
 
-  if (stateProcessos.length === initialLength) {
-    return res.status(404).json({ error: 'Processo finalístico não encontrado' });
+  if (db.content.processosFinalisticos.length === initialLen) {
+    return res.status(404).json({ error: 'Processo não encontrado' });
   }
 
-  res.json({ status: 'success', message: 'Processo finalístico removido com sucesso' });
+  saveDatabase(db);
+  res.json({ status: 'success', message: 'Processo removido com sucesso' });
 });
 
-app.post('/api/cadeia-valor/reset', (_req: Request, res: Response) => {
-  stateProcessos = [...PROCESSOS_FINALISTICOS];
-  res.json({ status: 'success', message: 'Processos restaurados para a configuração padrão institucional', processos: stateProcessos });
-});
-
-// 2. Auth Login Endpoint
-app.post('/api/auth/login', (req: Request, res: Response) => {
-  const { email, role } = req.body;
-  const user = USUARIOS_DEMO.find(u => (email && u.email.toLowerCase() === email.toLowerCase()) || (role && u.role === role)) 
-    || USUARIOS_DEMO[0];
-
-  const token = createSimulatedJwt(user);
-  res.json({
-    token,
-    refreshToken: `rf_${user.id}_${Date.now()}`,
-    usuario: user,
-    expiraEm: 3600 * 24
-  });
-});
-
-// 3. User verification
-app.get('/api/auth/me', requireAuth, (req: Request, res: Response) => {
-  res.json({ usuario: (req as any).user });
-});
-
-// 4. Update KPI
-app.put('/api/kpis/:id', (req: Request, res: Response) => {
+// Update KPI
+app.put('/api/kpis/:id', requireAuth, requirePermission('MANAGE_KPIS'), (req: Request, res: Response) => {
   const { id } = req.params;
-  const index = stateKpis.findIndex(k => k.id === id);
+  const db = getDatabase();
+  const index = db.content.kpis.findIndex(k => k.id === id);
   if (index === -1) {
     return res.status(404).json({ error: 'Indicador não encontrado' });
   }
 
   const updatedKpi: IndicadorKPI = {
-    ...stateKpis[index],
+    ...db.content.kpis[index],
     ...req.body,
     ultimaAtualizacao: new Date().toISOString().slice(0, 10)
   };
 
-  // Recalculate status based on polarity and target
   if (updatedKpi.meta > 0) {
     const ratio = updatedKpi.realizado / updatedKpi.meta;
     if (ratio >= 0.98) updatedKpi.status = 'EXCELENTE';
@@ -210,27 +472,30 @@ app.put('/api/kpis/:id', (req: Request, res: Response) => {
     else updatedKpi.status = 'CRITICO';
   }
 
-  stateKpis[index] = updatedKpi;
+  db.content.kpis[index] = updatedKpi;
+  saveDatabase(db);
   res.json({ status: 'success', kpi: updatedKpi });
 });
 
-// 5. Action Plans CRUD
+// Action Plans CRUD
 app.get('/api/action-plans', (req: Request, res: Response) => {
+  const db = getDatabase();
   const { unidade, objetivoId, status } = req.query;
-  let filtered = [...statePlanos];
+  let filtered = [...db.content.planosAcao];
   if (unidade) filtered = filtered.filter(p => p.unidadeResponsavel === unidade);
   if (objetivoId) filtered = filtered.filter(p => p.objetivoId === objetivoId);
   if (status) filtered = filtered.filter(p => p.status === status);
   res.json(filtered);
 });
 
-app.post('/api/action-plans', (req: Request, res: Response) => {
+app.post('/api/action-plans', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
   const payload = req.body;
+  const db = getDatabase();
   const newPlano: PlanoAcao5W2H = {
     id: `pa-${Date.now()}`,
-    codigo: payload.codigo || `PA-${payload.unidadeResponsavel || 'RO'}-${statePlanos.length + 1}`,
+    codigo: payload.codigo || `PA-${payload.unidadeResponsavel || 'RO'}-${db.content.planosAcao.length + 1}`,
     titulo: payload.titulo || 'Novo Plano de Ação',
-    objetivoId: payload.objetivoId || stateObjetivos[0].id,
+    objetivoId: payload.objetivoId || db.content.objetivos[0]?.id || 'obj-1',
     unidadeResponsavel: payload.unidadeResponsavel || 'DETEC',
     oQue: payload.oQue || '',
     porQue: payload.porQue || '',
@@ -247,78 +512,67 @@ app.post('/api/action-plans', (req: Request, res: Response) => {
     ]
   };
 
-  statePlanos = [newPlano, ...statePlanos];
+  db.content.planosAcao.unshift(newPlano);
+  saveDatabase(db);
   res.status(201).json({ status: 'success', plano: newPlano });
 });
 
-app.put('/api/action-plans/:id', (req: Request, res: Response) => {
+app.put('/api/action-plans/:id', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
   const { id } = req.params;
-  const index = statePlanos.findIndex(p => p.id === id);
+  const db = getDatabase();
+  const index = db.content.planosAcao.findIndex(p => p.id === id);
   if (index === -1) {
     return res.status(404).json({ error: 'Plano de ação não encontrado' });
   }
 
-  statePlanos[index] = {
-    ...statePlanos[index],
+  db.content.planosAcao[index] = {
+    ...db.content.planosAcao[index],
     ...req.body
   };
-  res.json({ status: 'success', plano: statePlanos[index] });
+
+  saveDatabase(db);
+  res.json({ status: 'success', plano: db.content.planosAcao[index] });
 });
 
-app.delete('/api/action-plans/:id', (req: Request, res: Response) => {
+app.delete('/api/action-plans/:id', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
   const { id } = req.params;
-  const initialLen = statePlanos.length;
-  statePlanos = statePlanos.filter(p => p.id !== id);
-  if (statePlanos.length === initialLen) {
+  const db = getDatabase();
+  const initialLength = db.content.planosAcao.length;
+  db.content.planosAcao = db.content.planosAcao.filter(p => p.id !== id);
+
+  if (db.content.planosAcao.length === initialLength) {
     return res.status(404).json({ error: 'Plano de ação não encontrado' });
   }
-  res.json({ status: 'success', message: 'Plano removido com sucesso' });
+
+  saveDatabase(db);
+  res.json({ status: 'success', message: 'Plano de ação excluído' });
 });
 
-// 6. Update Strategic Objective
-app.patch('/api/objectives/:id', (req: Request, res: Response) => {
-  const { id } = req.params;
-  const index = stateObjetivos.findIndex(o => o.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Objetivo não encontrado' });
-  }
-
-  stateObjetivos[index] = {
-    ...stateObjetivos[index],
-    ...req.body
-  };
-  res.json({ status: 'success', objetivo: stateObjetivos[index] });
-});
-
-// 7. Get Technical Specs & DDL
-app.get('/api/tech-specs', (_req: Request, res: Response) => {
-  res.json(ESPECIFICACOES_TECNICAS);
-});
-
-// 7.1 Relational Schema & Database Documentation Endpoint
-app.get('/api/database/schema', (_req: Request, res: Response) => {
+// DDL & Specs
+app.get('/api/database/ddl', (_req: Request, res: Response) => {
   res.type('application/sql').send(ESPECIFICACOES_TECNICAS.ddlPostgreSql);
 });
 
-// 7.2 OpenAPI 3.1 Spec Endpoint
 app.get('/api/database/openapi', (_req: Request, res: Response) => {
   res.json({
     openapi: '3.1.0',
     info: {
       title: 'SENAR-AR/RO Balanced Scorecard & Cadeia de Valor 3D API',
       version: '2.0.0',
-      description: 'API RESTful para gestão estratégica, indicadores de desempenho (KPIs), planos de ação 5W2H e CMS dos 4 processos finalísticos da Cadeia de Valor do SENAR Rondônia.'
+      description: 'API RESTful para gestão estratégica, indicadores de desempenho (KPIs), planos de ação 5W2H e CMS do SENAR Rondônia.'
     },
     servers: [{ url: '/api', description: 'Servidor Local / Nuvem' }],
     paths: ESPECIFICACOES_TECNICAS.apiSchemas
   });
 });
 
-// 8. Gemini Strategic Analysis Endpoint
+// Gemini Strategic Analysis Endpoint
 app.post('/api/gemini/strategic-analysis', async (req: Request, res: Response) => {
   const { promptPersonalizado } = req.body;
+  const db = getDatabase();
+  const stateKpis = db.content.kpis;
+  const statePlanos = db.content.planosAcao;
 
-  // Prepare concise context summary from current live state
   const totalKpis = stateKpis.length;
   const kpisExcelente = stateKpis.filter(k => k.status === 'EXCELENTE').length;
   const kpisNoRumo = stateKpis.filter(k => k.status === 'NO_RUMO').length;
@@ -327,23 +581,17 @@ app.post('/api/gemini/strategic-analysis', async (req: Request, res: Response) =
 
   const planosEmRisco = statePlanos.filter(p => p.status === 'EM_RISCO').map(p => `${p.codigo}: ${p.titulo} (${p.unidadeResponsavel})`);
   const mediaProgressoPlanos = Math.round(statePlanos.reduce((acc, p) => acc + p.progressoPercentual, 0) / (statePlanos.length || 1));
-
   const kpisDetalhados = stateKpis.map(k => `${k.codigo} (${k.nome}): Realizado ${k.realizado} / Meta ${k.meta} ${k.unidadeMedida} [${k.status}]`).join('\n');
 
   if (process.env.GEMINI_API_KEY) {
     try {
       const ai = new GoogleGenAI({
         apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build'
-          }
-        }
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
       });
 
-      const systemPrompt = `Você é um Arquiteto de Estratégia Governamental e Especialista Sênior em Balanced Scorecard (BSC) para o agronegócio, atuando como consultor de inteligência executiva do SENAR-AR/RO (Federação da Agricultura e Pecuária de Rondônia).
-Analise o estado atual dos KPIs e Planos de Ação e forneça um diagnóstico estratégico executivo em formato JSON rigoroso.
-O retorno DEVE ser um objeto JSON válido contendo:
+      const systemPrompt = `Você é um Arquiteto de Estratégia Governamental e Especialista Sênior em Balanced Scorecard (BSC) para o agronegócio, atuando como consultor de inteligência executiva do SENAR-AR/RO.
+Analise o estado atual dos KPIs e Planos de Ação e forneça um diagnóstico estratégico executivo em formato JSON rigoroso:
 {
   "titulo": "string",
   "diagnosticoGeral": "string com 2 a 3 parágrafos objetivos",
@@ -368,31 +616,11 @@ ${kpisDetalhados}
 
 ${promptPersonalizado ? `Pergunta específica da diretoria: ${promptPersonalizado}` : 'Gere uma análise estratégica completa priorizando as cadeias de leite, café e formação rural.'}`;
 
-      let response;
-      try {
-        response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: `${systemPrompt}\n\n${userContent}`,
-          config: {
-            responseMimeType: 'application/json'
-          }
-        });
-      } catch (callErr: any) {
-        // If 503 or transient spike, attempt a short retry
-        const is503 = callErr?.message?.includes('503') || callErr?.status === 503 || callErr?.message?.includes('high demand');
-        if (is503) {
-          await new Promise(r => setTimeout(r, 1200));
-          response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents: `${systemPrompt}\n\n${userContent}`,
-            config: {
-              responseMimeType: 'application/json'
-            }
-          });
-        } else {
-          throw callErr;
-        }
-      }
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: `${systemPrompt}\n\n${userContent}`,
+        config: { responseMimeType: 'application/json' }
+      });
 
       if (response && response.text) {
         const parsed = JSON.parse(response.text.trim());
@@ -403,11 +631,10 @@ ${promptPersonalizado ? `Pergunta específica da diretoria: ${promptPersonalizad
         });
       }
     } catch (_err: any) {
-      // Quiet graceful degradation: proceed to comprehensive domain fallback
+      // Quiet graceful degradation
     }
   }
 
-  // Graceful comprehensive fallback with deep domain insights for SENAR-RO
   const saudeCalculada = Math.round(
     ((kpisExcelente * 100 + kpisNoRumo * 85 + kpisAtencao * 60 + kpisCritico * 30) / (totalKpis * 100 || 1)) * 0.7 +
     mediaProgressoPlanos * 0.3
@@ -415,34 +642,25 @@ ${promptPersonalizado ? `Pergunta específica da diretoria: ${promptPersonalizad
 
   return res.json({
     titulo: 'Diagnóstico Estratégico Executivo SENAR-AR/RO (Ciclo 2027-2030)',
-    diagnosticoGeral: `O Planejamento Estratégico do SENAR-AR/RO demonstra robustez operacional com ${kpisExcelente + kpisNoRumo} dos ${totalKpis} indicadores de desempenho em faixa de excelência ou no rumo planejado. A expansão da Assistência Técnica e Gerencial (ATeG) e a cobertura integral dos 52 municípios constituem vitórias expressivas de capilaridade e impacto socioeconômico direto no agronegócio rondoniense.
-
-Entretanto, identificou-se um ponto de atenção prioritário na velocidade de digitalização dos processos de campo (KPI-DAF-01: 88,5% vs meta de 95%) e no plano de ação PA-ATEG-02 referente à aquisição e implantação dos sensores de pesagem eletrônica inteligente nas propriedades vitrine. Há necessidade de intervenção conjunta entre DAF e Gerência ATeG para destravar o processo de aquisição.`,
+    diagnosticoGeral: `O Planejamento Estratégico do SENAR-AR/RO demonstra robustez operacional com ${kpisExcelente + kpisNoRumo} dos ${totalKpis} indicadores de desempenho em faixa de excelência ou no rumo planejado. A expansão da Assistência Técnica e Gerencial (ATeG) e a cobertura integral dos 52 municípios constituem vitórias expressivas de capilaridade e impacto socioeconômico direto no agronegócio rondoniense.`,
     alertasCriticos: [
       {
         entidade: 'PA-ATEG-02: Unidade Piloto de Agrotecnologia',
         desvio: 'Atraso na homologação do fornecedor dos sensores e balanças IOT conectadas, limitando a execução para 68%.',
         recomendacao: 'O DAF deve abrir dispensa emergencial ou termo aditivo de compra com foco em fornecedores regionais já qualificados.'
-      },
-      {
-        entidade: 'KPI-DAF-01: Taxa de Digitalização dos Processos de Campo',
-        desvio: 'Técnicos em distritos com baixa conectividade celular encontram dificuldade na sincronização offline do app SisATEG.',
-        recomendacao: 'Habilitar o módulo PWA de sincronização em segundo plano via Wi-Fi nos sindicatos rurais polos.'
       }
     ],
     oportunidadesAgro: [
       'Indicação Geográfica (IG) e Denominação de Origem do Café Robusta Amazônico gerando até 35% de sobrepreço aos produtores atendidos.',
-      'Aproveitamento do status sanitário de Rondônia livre de febre aftosa sem vacinação para exportação de carne bovina sustentável rastreada.',
-      'Mercado de bioinsumos e fertilidade do solo amazônico com novas turmas de capacitação técnica pelo DETEC.'
+      'Aproveitamento do status sanitário de Rondônia livre de febre aftosa sem vacinação para exportação de carne bovina sustentável rastreada.'
     ],
     prioridadesImediatas: [
       'Alinhar reunião entre Superintendência e DAF para destravamento do edital de balanças eletrônicas da ATeG.',
-      'Acelerar a entrega do módulo de IA integrado ao BigQuery para projeção preditiva da safra agrícola.',
-      'Realizar a Rodada de Negócios Sindicais no polo central de Ji-Paraná para validar as turmas de FPR do 4º trimestre.'
+      'Acelerar a entrega do módulo de IA integrado ao BigQuery para projeção preditiva da safra agrícola.'
     ],
     indiceSaudeEstrategica: saudeCalculada,
     dataGeracao: new Date().toISOString(),
-    fonte: 'Motor Analítico Estratégico SENAR-RO (Base de Regras & Análise BigQuery)'
+    fonte: 'Motor Analítico Estratégico SENAR-RO'
   });
 });
 

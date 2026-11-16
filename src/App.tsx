@@ -36,7 +36,8 @@ import { PainelGeminiAI } from './components/sections/PainelGeminiAI';
 import { ArquiteturaEspecificacoes } from './components/sections/ArquiteturaEspecificacoes';
 
 import { ObjetivoPopoverModal } from './components/modals/ObjetivoPopoverModal';
-import { AuthModal } from './components/modals/AuthModal';
+import { AuthLoginModal } from './components/modals/AuthLoginModal';
+import { AdminPanelModal } from './components/modals/AdminPanelModal';
 import { CmsActionModal } from './components/modals/CmsActionModal';
 import { KpiEditModal } from './components/modals/KpiEditModal';
 
@@ -147,7 +148,10 @@ export default function App() {
 
   // Auth User: Default to Dr. Emerson Lira (Superintendente) for immediate CMS testing
   const [usuarioAtivo, setUsuarioAtivo] = useState<UsuarioAutenticado | null>(USUARIOS_DEMO[0]);
+  const [canEdit, setCanEdit] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState<boolean>(false);
+  const [siteContent, setSiteContent] = useState<any>(null);
 
   // Modals state
   const [selectedObjetivo, setSelectedObjetivo] = useState<ObjetivoEstrategico | null>(null);
@@ -195,21 +199,67 @@ export default function App() {
     }
   }, [resultadosSociedade]);
 
-  // Initial Data Fetch (preserva alterações locais já salvas pelo usuário)
+  // Initial Data Fetch e verificação de sessão JWT no banco local
   useEffect(() => {
-    const hasLocalKpis = Boolean(localStorage.getItem(KPIS_PAINEL_STORAGE_KEY));
-    const hasLocalObjetivos = Boolean(localStorage.getItem(OBJETIVOS_STORAGE_KEY));
-    fetch('/api/strategic-data')
+    // 1. Carrega conteúdo editável do banco local
+    fetch('/api/site/content')
       .then(res => res.json())
       .then(data => {
-        if (data.objetivos && !hasLocalObjetivos) setObjetivos(data.objetivos);
-        if (data.kpis && !hasLocalKpis) setKpis(data.kpis);
-        if (data.planosAcao) setPlanos(data.planosAcao);
+        if (data.content) {
+          setSiteContent(data.content);
+          if (data.content.objetivos) setObjetivos(data.content.objetivos);
+          if (data.content.kpis) setKpis(data.content.kpis);
+          if (data.content.planosAcao) setPlanos(data.content.planosAcao);
+          if (data.content.resultadosSociedade) setResultadosSociedade(data.content.resultadosSociedade);
+        }
       })
       .catch(err => {
-        console.warn('Usando dados locais sincronizados:', err.message);
+        console.warn('Erro ao carregar do banco local:', err);
       });
+
+    // 2. Verifica token de autenticação existente
+    const token = localStorage.getItem('senar_jwt_token');
+    if (token) {
+      fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.usuario) {
+            setUsuarioAtivo(data.usuario);
+            setCanEdit(Boolean(data.canEdit));
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
+
+  // Salvar Conteúdo Global no Banco Local
+  const handleSaveGlobalContent = async (updatedContent: any): Promise<boolean> => {
+    const token = localStorage.getItem('senar_jwt_token');
+    try {
+      const res = await fetch('/api/site/content', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(updatedContent)
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        return false;
+      }
+      setSiteContent(data.content);
+      if (data.content.proposito) {
+        // atualizado em memória
+      }
+      return true;
+    } catch (e) {
+      console.error('Erro ao salvar no banco local:', e);
+      return false;
+    }
+  };
 
   // AI Handler
   const handleRunAiAnalysis = async (customPrompt?: string): Promise<InsightEstrategicoIA | null> => {
@@ -370,11 +420,15 @@ export default function App() {
       {/* 1. Header Fixo com âncoras suaves e Top Bar Contract */}
       <HeaderFixed
         usuarioAtivo={usuarioAtivo}
+        canEdit={canEdit}
         onOpenAuth={() => setIsAuthModalOpen(true)}
-        onLogout={() => setUsuarioAtivo(USUARIOS_DEMO[4])} // Switch to public visitor
+        onLogout={() => {
+          localStorage.removeItem('senar_jwt_token');
+          setUsuarioAtivo(null);
+          setCanEdit(false);
+        }}
         onOpenCms={() => {
-          setNewPlanoUnidade(usuarioAtivo?.unidade || 'DETEC');
-          setIsNewPlanoModalOpen(true);
+          setIsAdminPanelOpen(true);
         }}
         onOpenSpecs={() => scrollToSection('especificacoes-api')}
       />
@@ -386,6 +440,7 @@ export default function App() {
         <HeroProposito
           onExploreClick={() => scrollToSection('mapa-bsc')}
           onOpenGeminiClick={() => scrollToSection('inteligencia-ia')}
+          propositoData={siteContent?.proposito}
         />
 
         {/* CHAPTER 2: Mapa Estratégico Visual Interativo BSC (Fundo Verde Suave Institucional) */}
@@ -468,12 +523,33 @@ export default function App() {
         onDeleteKpi={handleDeleteComplementaryKpi}
       />
 
-      {/* Auth Modal: RBAC Role Switching */}
-      <AuthModal
+      {/* Auth Modal: Login e Redefinição de Senha */}
+      <AuthLoginModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onLogin={(user) => setUsuarioAtivo(user)}
+        onLoginSuccess={(user, token, canEditPerm) => {
+          setUsuarioAtivo(user);
+          setCanEdit(canEditPerm);
+          setIsAdminPanelOpen(true);
+        }}
       />
+
+      {/* Admin Panel Modal: Gestão CMS & Usuários */}
+      {usuarioAtivo && (
+        <AdminPanelModal
+          isOpen={isAdminPanelOpen}
+          onClose={() => setIsAdminPanelOpen(false)}
+          usuarioAtivo={usuarioAtivo}
+          canEdit={canEdit}
+          siteContent={siteContent}
+          onSaveContent={handleSaveGlobalContent}
+          onLogout={() => {
+            localStorage.removeItem('senar_jwt_token');
+            setUsuarioAtivo(null);
+            setCanEdit(false);
+          }}
+        />
+      )}
 
       {/* CMS Modal: Create or Edit 5W2H Action Plan */}
       <CmsActionModal

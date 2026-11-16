@@ -6,13 +6,27 @@ import logoFaperonOficial from '../../assets/images/logo_faperon_senar_colorida_
 interface HeroPropositoProps {
   onExploreClick: () => void;
   onOpenGeminiClick: () => void;
+  propositoData?: {
+    proposito?: string;
+    visao?: string;
+    missao?: string;
+    lema?: string;
+    valores?: string;
+  };
 }
 
 export const HeroProposito: React.FC<HeroPropositoProps> = ({
   onExploreClick,
-  onOpenGeminiClick
+  onOpenGeminiClick,
+  propositoData
 }) => {
   const [isOrganogramaOpen, setIsOrganogramaOpen] = useState(false);
+
+  const lemaText = propositoData?.lema || '“Conhecimento que transforma, campo que prospera.”';
+  const propositoText = propositoData?.proposito || '“Transformar vidas e fortalecer o campo, criando oportunidades para que as pessoas prosperem por meio do conhecimento, do trabalho e do desenvolvimento sustentável.”';
+  const visaoText = propositoData?.visao || 'Alcançar a excelência na atuação rural, por meio da assistência, capacitação, formação e promoção social gerando resultados efetivos aos produtores.';
+  const missaoText = propositoData?.missao || 'Transformar conhecimento em oportunidades para o meio rural, por meio da educação profissional, da assistência técnica, da inovação e do fortalecimento da gestão, gerando valor para as pessoas, as propriedades rurais e a sociedade.';
+  const valoresText = propositoData?.valores || 'Excelência e Qualidade, Cooperação e Parceria, Compromisso com o Público Rural, Responsabilidade pelos Resultados e Valorização das Pessoas.';
   return (
     <div id="proposito" className="relative pt-24 pb-16 bg-white overflow-hidden scroll-mt-16">
       {/* Decorative top pattern subtle background */}
@@ -34,7 +48,7 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
             <span>Lema do Planejamento 2027–2030</span>
           </div>
           <p className="text-base sm:text-xl font-extrabold text-emerald-950 tracking-tight leading-snug text-balance">
-            “Conhecimento que transforma, campo que prospera.”
+            {lemaText.startsWith('“') ? lemaText : `“${lemaText}”`}
           </p>
         </div>
 
@@ -52,7 +66,7 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
                     <span>Propósito Institucional (Ciclo 2027–2030)</span>
                   </div>
                   <h1 className="text-xl sm:text-2xl lg:text-[26px] font-extrabold leading-snug text-white tracking-tight text-balance text-center">
-                    “Transformar vidas e fortalecer o campo, criando oportunidades para que as pessoas prosperem por meio do conhecimento, do trabalho e do desenvolvimento sustentável.”
+                    {propositoText.startsWith('“') ? propositoText : `“${propositoText}”`}
                   </h1>
                 </div>
               </div>
@@ -66,7 +80,7 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
                   </div>
                   <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Visão Estratégica</h3>
                   <p className="mt-1.5 text-xs text-slate-700 leading-relaxed font-medium">
-                    Alcançar a excelência na atuação rural, por meio da assistência, capacitação, formação e promoção social gerando resultados efetivos aos produtores.
+                    {visaoText}
                   </p>
                 </div>
 
@@ -76,7 +90,7 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
                   </div>
                   <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Missão Institucional</h3>
                   <p className="mt-1.5 text-xs text-slate-700 leading-relaxed">
-                    Transformar conhecimento em oportunidades para o meio rural, por meio da educação profissional, da assistência técnica, da inovação e do fortalecimento da gestão, gerando valor para as pessoas, as propriedades rurais e a sociedade.
+                    {missaoText}
                   </p>
                 </div>
 
@@ -86,7 +100,7 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
                   </div>
                   <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Valores Centrais</h3>
                   <p className="mt-1.5 text-xs text-slate-700 leading-relaxed">
-                    Excelência e Qualidade, Cooperação e Parceria, Compromisso com o Público Rural, Responsabilidade pelos Resultados e Valorização das Pessoas.
+                    {valoresText}
                   </p>
                 </div>
 

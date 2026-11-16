@@ -5,6 +5,7 @@ import logoFaperonColorida from '../../assets/images/logo_faperon_senar_colorida
 
 interface HeaderFixedProps {
   usuarioAtivo: UsuarioAutenticado | null;
+  canEdit?: boolean;
   onOpenAuth: () => void;
   onLogout: () => void;
   onOpenCms: () => void;
@@ -13,6 +14,7 @@ interface HeaderFixedProps {
 
 export const HeaderFixed: React.FC<HeaderFixedProps> = ({
   usuarioAtivo,
+  canEdit,
   onOpenAuth,
   onLogout,
   onOpenCms,
@@ -65,14 +67,21 @@ export const HeaderFixed: React.FC<HeaderFixedProps> = ({
 
         {/* Zone 3: 1 Primary Action */}
         <div className="flex items-center gap-3 shrink-0">
-          {usuarioAtivo && usuarioAtivo.role !== 'VISITANTE_PUBLICO' ? (
+          {usuarioAtivo ? (
             <div className="flex items-center gap-2">
               <button
                 onClick={onOpenCms}
-                className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#006837] hover:bg-[#004d26] rounded-lg transition-colors whitespace-nowrap shrink-0 shadow-sm cursor-pointer inline-flex items-center gap-1.5"
+                className={`px-3.5 py-1.5 text-xs font-semibold text-white rounded-lg transition-colors whitespace-nowrap shrink-0 shadow-sm cursor-pointer inline-flex items-center gap-1.5 ${
+                  canEdit ? 'bg-[#006837] hover:bg-[#004d26]' : 'bg-teal-700 hover:bg-teal-800'
+                }`}
               >
                 <Shield className="w-3.5 h-3.5" />
                 Painel CMS ({usuarioAtivo.unidade})
+                {canEdit ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Modo Edição Ativo" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-amber-400" title="Modo Visualização" />
+                )}
               </button>
               <button
                 onClick={onLogout}
