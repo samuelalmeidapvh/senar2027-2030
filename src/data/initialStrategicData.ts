@@ -390,7 +390,7 @@ export const OBJETIVOS_ESTRATEGICOS: ObjetivoEstrategico[] = [
     codigo: 'OE-03',
     perspectiva: 'PROCESSOS_INTERNOS',
     titulo: 'Excelência na Gestão',
-    descricao: 'Gerir com excelência os recursos financeiros e humanos, os processos operacionais com foco no aumento da maturidade de gestão.',
+    descricao: 'Gerir com excelência as finanças, a operação e os recursos humanos com foco no aumento da maturidade de gestão.',
     unidadeLider: 'DAF',
     progressoPercentual: 94,
     status: 'EXCELENTE',

@@ -254,7 +254,7 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
         /* OFFICIAL IMAGE VIEW */
         <div className="mt-6 rounded-2xl overflow-hidden border border-slate-200 shadow-md bg-slate-950 relative group">
           <img
-            src="/assets/aistudio/Mapa_Estrat_gico_SENAR_2027_2030_BSC_V.3_e406e592.png"
+            src="/assets/aistudio/Mapa_Estrat_gico_SENAR_2027_2030-2_V.f2_8f00affc.png"
             alt="Mapa Estratégico SENAR 2027-2030 BSC Oficial"
             className="w-full h-auto object-contain max-h-[850px] mx-auto select-none"
           />
@@ -597,7 +597,7 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
                     EXCELÊNCIA NA GESTÃO
                   </h5>
                   <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                    Gerir com excelência os recursos financeiros e humanos, os processos operacionais com foco no aumento da maturidade de gestão.
+                    Gerir com excelência as finanças, a operação e os recursos humanos com foco no aumento da maturidade de gestão.
                   </p>
                 </div>
 
@@ -767,7 +767,7 @@ export const MapaEstrategicoBSC: React.FC<MapaEstrategicoBSCProps> = ({
             </div>
             <div className="p-4 overflow-auto max-h-[calc(92vh-60px)] flex items-center justify-center bg-slate-950">
               <img
-                src="/assets/aistudio/Mapa_Estrat_gico_SENAR_2027_2030_BSC_V.3_e406e592.png"
+                src="/assets/aistudio/Mapa_Estrat_gico_SENAR_2027_2030-2_V.f2_8f00affc.png"
                 alt="Mapa Estratégico SENAR 2027-2030 BSC"
                 className="w-full h-auto max-h-[82vh] object-contain rounded-lg"
               />

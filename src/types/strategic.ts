@@ -223,6 +223,11 @@ export interface CronogramaOrcamentoFicha {
   orcamento2030?: number;
   orcamento2029_30?: number;
   total: number;
+  valorTexto2027?: string;
+  valorTexto2028?: string;
+  valorTexto2029?: string;
+  valorTexto2030?: string;
+  valorTextoTotal?: string;
 }
 
 export interface RiscoMitigadoFicha {
@@ -242,6 +247,31 @@ export interface BlocoNotaFicha {
   itens: string[];
 }
 
+export interface FichaTemaObjetivo {
+  id: string;
+  codigoTema: string;
+  nomeTema: string;
+  unidadeResponsavelLider: string;
+  unidadesParceiras: string;
+  responsavelPreenchimento: string;
+  cargoResponsavel: string;
+  dataElaboracaoRevisao: string;
+  diretrizesResultados: string[];
+  solucoesIniciativas: IniciativaEstrategicaFicha[];
+  indicadoresMetas: IndicadorMetaFicha[];
+  cronogramaOrcamento: CronogramaOrcamentoFicha[];
+  notaMetodologicaOrcamento?: string;
+  governanca: {
+    statusGeral: string;
+    percentualExecucao: number;
+    periodicidadeMonitoramento: string;
+    ultimaAtualizacao: string;
+    ritosInstitucionais: string[];
+  };
+  analiseRiscos: RiscoMitigadoFicha[];
+  fundamentacaoTecnica: string;
+}
+
 export interface FichaTecnicaObjetivo {
   id: string;
   codigoObjetivo: string;
@@ -258,6 +288,7 @@ export interface FichaTecnicaObjetivo {
   solucoesIniciativas: IniciativaEstrategicaFicha[];
   indicadoresMetas: IndicadorMetaFicha[];
   cronogramaOrcamento: CronogramaOrcamentoFicha[];
+  notaMetodologicaOrcamento?: string;
   governanca: {
     statusGeral: string;
     percentualExecucao: number;
@@ -267,6 +298,7 @@ export interface FichaTecnicaObjetivo {
   };
   analiseRiscos: RiscoMitigadoFicha[];
   premissasNotas?: BlocoNotaFicha[];
+  temas?: FichaTemaObjetivo[];
   fundamentacaoTecnica: string;
   assinaturaResponsavel: string;
 }

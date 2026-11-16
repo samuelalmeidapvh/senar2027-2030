@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   FichaTecnicaObjetivo, 
+  FichaTemaObjetivo,
   IniciativaEstrategicaFicha, 
   IndicadorMetaFicha, 
   CronogramaOrcamentoFicha, 
@@ -56,7 +57,15 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((f: FichaTecnicaObjetivo) => {
+            if (f.id === 'ficha-oe-02-gestao' && (!f.temas || f.temas.length === 0)) {
+              const official = FICHAS_TECNICAS_INICIAIS.find(o => o.id === 'ficha-oe-02-gestao');
+              return official || f;
+            }
+            return f;
+          });
+        }
       }
     } catch (e) {
       console.warn('Erro ao carregar fichas salvas, usando dados oficiais', e);
@@ -76,6 +85,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
       ''
     );
   });
+  const [selectedTemaId, setSelectedTemaId] = useState<string>('tema-05-governanca');
 
   const sectionTopRef = useRef<HTMLDivElement>(null);
   const fichaDocumentRef = useRef<HTMLDivElement>(null);
@@ -124,13 +134,21 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
     if (persp !== 'TODAS') {
       const matching = fichas.filter(f => f.perspectivaBsc === persp);
       if (matching.length > 0 && !matching.some(m => m.id === selectedFichaId)) {
-        setSelectedFichaId(matching[0].id);
+        const target = matching[0];
+        setSelectedFichaId(target.id);
+        if (target.temas && target.temas.length > 0) {
+          setSelectedTemaId(target.temas[0].id);
+        }
       }
     }
   };
 
   const handleSelectFichaAndScroll = (fichaId: string) => {
     setSelectedFichaId(fichaId);
+    const target = fichas.find(f => f.id === fichaId);
+    if (target?.temas && target.temas.length > 0) {
+      setSelectedTemaId(target.temas[0].id);
+    }
     requestAnimationFrame(() => {
       fichaDocumentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -158,6 +176,34 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
     );
   }
 
+  // Temas support (Objetivo 02 - Excelência na Gestão)
+  const temasList = activeFicha.temas && activeFicha.temas.length > 0 ? activeFicha.temas : null;
+  const isConsolidadoTemas = Boolean(temasList && selectedTemaId === 'CONSOLIDADO');
+  const activeTema: FichaTemaObjetivo | null =
+    temasList && !isConsolidadoTemas
+      ? temasList.find(t => t.id === selectedTemaId) || temasList[0]
+      : null;
+
+  // View data reflects activeTema when viewing a specific Theme, or activeFicha otherwise
+  const viewData = activeTema
+    ? {
+        ...activeFicha,
+        unidadeResponsavelLider: activeTema.unidadeResponsavelLider,
+        unidadesParceiras: activeTema.unidadesParceiras,
+        responsavelPreenchimento: activeTema.responsavelPreenchimento,
+        cargoResponsavel: activeTema.cargoResponsavel,
+        dataElaboracaoRevisao: activeTema.dataElaboracaoRevisao,
+        diretrizesResultados: activeTema.diretrizesResultados,
+        solucoesIniciativas: activeTema.solucoesIniciativas,
+        indicadoresMetas: activeTema.indicadoresMetas,
+        cronogramaOrcamento: activeTema.cronogramaOrcamento,
+        notaMetodologicaOrcamento: activeTema.notaMetodologicaOrcamento,
+        governanca: activeTema.governanca,
+        analiseRiscos: activeTema.analiseRiscos,
+        fundamentacaoTecnica: activeTema.fundamentacaoTecnica
+      }
+    : activeFicha;
+
   // Helpers for annual 2029 and 2030 budgets (backward-compatible with orcamento2029_30)
   const getOrc2029 = (curr: CronogramaOrcamentoFicha) =>
     curr.orcamento2029 !== undefined
@@ -170,12 +216,13 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
       : (Number(curr.orcamento2029_30) || 0) / 2;
 
   // Calculate totals for Cronograma & Orçamento
-  const totalOrcamento2027 = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.orcamento2027) || 0), 0);
-  const totalOrcamento2028 = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.orcamento2028) || 0), 0);
-  const totalOrcamento2029 = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + getOrc2029(curr), 0);
-  const totalOrcamento2030 = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + getOrc2030(curr), 0);
-  const totalGeralOrcamento = activeFicha.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.total) || 0), 0);
-  const hasTipoPlanoColumn = activeFicha.cronogramaOrcamento.some(c => Boolean(c.tipoPlano));
+  const totalOrcamento2027 = viewData.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.orcamento2027) || 0), 0);
+  const totalOrcamento2028 = viewData.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.orcamento2028) || 0), 0);
+  const totalOrcamento2029 = viewData.cronogramaOrcamento.reduce((acc, curr) => acc + getOrc2029(curr), 0);
+  const totalOrcamento2030 = viewData.cronogramaOrcamento.reduce((acc, curr) => acc + getOrc2030(curr), 0);
+  const totalGeralOrcamento = viewData.cronogramaOrcamento.reduce((acc, curr) => acc + (Number(curr.total) || 0), 0);
+  const hasTipoPlanoColumn = viewData.cronogramaOrcamento.some(c => Boolean(c.tipoPlano));
+  const hasValorTextoConvenios = viewData.cronogramaOrcamento.some(c => Boolean(c.valorTextoTotal));
 
   // Format currency (supports decimals for DETEC plans while keeping round numbers clean)
   const formatMoney = (val: number) => {
@@ -188,52 +235,107 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
     }).format(val);
   };
 
+  const reaggregateFichaFromTemas = (
+    f: FichaTecnicaObjetivo,
+    updatedTemas: FichaTemaObjetivo[]
+  ): FichaTecnicaObjetivo => ({
+    ...f,
+    temas: updatedTemas,
+    diretrizesResultados: updatedTemas.flatMap(t =>
+      t.diretrizesResultados.map(d => `[Tema ${t.codigoTema} — ${t.nomeTema}] ${d}`)
+    ),
+    solucoesIniciativas: updatedTemas.flatMap(t => t.solucoesIniciativas),
+    indicadoresMetas: updatedTemas.flatMap(t => t.indicadoresMetas),
+    cronogramaOrcamento: updatedTemas.flatMap(t => t.cronogramaOrcamento),
+    analiseRiscos: updatedTemas.flatMap(t =>
+      t.analiseRiscos.map(r => ({
+        ...r,
+        codigo: r.codigo || `Tema ${t.codigoTema}`
+      }))
+    )
+  });
+
   // Helper to update current active ficha
   const updateActiveFicha = (updater: (prev: FichaTecnicaObjetivo) => FichaTecnicaObjetivo) => {
     setFichas(prev => prev.map(f => f.id === activeFicha.id ? updater(f) : f));
   };
 
+  // Helper to update activeTema inside activeFicha (or activeFicha directly if no temas)
+  const updateActiveScope = (
+    temaUpdater: (prevTema: FichaTemaObjetivo) => FichaTemaObjetivo,
+    fichaUpdater: (prevFicha: FichaTecnicaObjetivo) => FichaTecnicaObjetivo,
+    targetItemId?: string
+  ) => {
+    updateActiveFicha(f => {
+      if (f.temas && f.temas.length > 0) {
+        const targetTemaId =
+          activeTema?.id ||
+          (targetItemId
+            ? f.temas.find(
+                t =>
+                  t.solucoesIniciativas.some(i => i.id === targetItemId) ||
+                  t.indicadoresMetas.some(k => k.id === targetItemId) ||
+                  t.cronogramaOrcamento.some(c => c.id === targetItemId) ||
+                  t.analiseRiscos.some(r => r.id === targetItemId)
+              )?.id
+            : undefined) ||
+          f.temas[0].id;
+        const updatedTemas = f.temas.map(t => (t.id === targetTemaId ? temaUpdater(t) : t));
+        return reaggregateFichaFromTemas(f, updatedTemas);
+      }
+      return fichaUpdater(f);
+    });
+  };
+
   // Handlers for Iniciativas
   const handleSaveIniciativa = (iniciativa: IniciativaEstrategicaFicha) => {
-    updateActiveFicha(f => {
-      const exists = f.solucoesIniciativas.some(i => i.id === iniciativa.id);
-      const updatedList = exists
-        ? f.solucoesIniciativas.map(i => i.id === iniciativa.id ? iniciativa : i)
-        : [...f.solucoesIniciativas, iniciativa];
-      return { ...f, solucoesIniciativas: updatedList };
-    });
+    const upsert = (list: IniciativaEstrategicaFicha[]) =>
+      list.some(i => i.id === iniciativa.id)
+        ? list.map(i => (i.id === iniciativa.id ? iniciativa : i))
+        : [...list, iniciativa];
+
+    updateActiveScope(
+      t => ({ ...t, solucoesIniciativas: upsert(t.solucoesIniciativas) }),
+      f => ({ ...f, solucoesIniciativas: upsert(f.solucoesIniciativas) }),
+      iniciativa.id
+    );
     setIsEditIniciativaOpen(false);
     setEditingIniciativa(null);
   };
 
   const handleDeleteIniciativa = (id: string) => {
     if (confirm('Deseja realmente excluir esta Solução / Iniciativa Estratégica?')) {
-      updateActiveFicha(f => ({
-        ...f,
-        solucoesIniciativas: f.solucoesIniciativas.filter(i => i.id !== id)
-      }));
+      updateActiveScope(
+        t => ({ ...t, solucoesIniciativas: t.solucoesIniciativas.filter(i => i.id !== id) }),
+        f => ({ ...f, solucoesIniciativas: f.solucoesIniciativas.filter(i => i.id !== id) }),
+        id
+      );
     }
   };
 
   // Handlers for KPIs
   const handleSaveKpi = (kpi: IndicadorMetaFicha) => {
-    updateActiveFicha(f => {
-      const exists = f.indicadoresMetas.some(k => k.id === kpi.id);
-      const updatedList = exists
-        ? f.indicadoresMetas.map(k => k.id === kpi.id ? kpi : k)
-        : [...f.indicadoresMetas, kpi];
-      return { ...f, indicadoresMetas: updatedList };
-    });
+    const upsert = (list: IndicadorMetaFicha[]) =>
+      list.some(k => k.id === kpi.id)
+        ? list.map(k => (k.id === kpi.id ? kpi : k))
+        : [...list, kpi];
+
+    updateActiveScope(
+      t => ({ ...t, indicadoresMetas: upsert(t.indicadoresMetas) }),
+      f => ({ ...f, indicadoresMetas: upsert(f.indicadoresMetas) }),
+      kpi.id
+    );
     setIsEditKpiOpen(false);
     setEditingKpi(null);
   };
 
   const handleDeleteKpi = (id: string) => {
     if (confirm('Deseja excluir este Indicador de Desempenho e Metas?')) {
-      updateActiveFicha(f => ({
-        ...f,
-        indicadoresMetas: f.indicadoresMetas.filter(k => k.id !== id)
-      }));
+      updateActiveScope(
+        t => ({ ...t, indicadoresMetas: t.indicadoresMetas.filter(k => k.id !== id) }),
+        f => ({ ...f, indicadoresMetas: f.indicadoresMetas.filter(k => k.id !== id) }),
+        id
+      );
     }
   };
 
@@ -253,46 +355,54 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
       orcamento2029_30: v2029 + v2030,
       total: totalCalc
     };
-    
-    updateActiveFicha(f => {
-      const exists = f.cronogramaOrcamento.some(c => c.id === cron.id);
-      const updatedList = exists
-        ? f.cronogramaOrcamento.map(c => c.id === cron.id ? cronComTotal : c)
-        : [...f.cronogramaOrcamento, cronComTotal];
-      return { ...f, cronogramaOrcamento: updatedList };
-    });
+
+    const upsert = (list: CronogramaOrcamentoFicha[]) =>
+      list.some(c => c.id === cron.id)
+        ? list.map(c => (c.id === cron.id ? cronComTotal : c))
+        : [...list, cronComTotal];
+
+    updateActiveScope(
+      t => ({ ...t, cronogramaOrcamento: upsert(t.cronogramaOrcamento) }),
+      f => ({ ...f, cronogramaOrcamento: upsert(f.cronogramaOrcamento) }),
+      cron.id
+    );
     setIsEditCronogramaOpen(false);
     setEditingCronograma(null);
   };
 
   const handleDeleteCronograma = (id: string) => {
     if (confirm('Deseja excluir esta linha de cronograma e orçamento?')) {
-      updateActiveFicha(f => ({
-        ...f,
-        cronogramaOrcamento: f.cronogramaOrcamento.filter(c => c.id !== id)
-      }));
+      updateActiveScope(
+        t => ({ ...t, cronogramaOrcamento: t.cronogramaOrcamento.filter(c => c.id !== id) }),
+        f => ({ ...f, cronogramaOrcamento: f.cronogramaOrcamento.filter(c => c.id !== id) }),
+        id
+      );
     }
   };
 
   // Handlers for Riscos
   const handleSaveRisco = (risco: RiscoMitigadoFicha) => {
-    updateActiveFicha(f => {
-      const exists = f.analiseRiscos.some(r => r.id === risco.id);
-      const updatedList = exists
-        ? f.analiseRiscos.map(r => r.id === risco.id ? risco : r)
-        : [...f.analiseRiscos, risco];
-      return { ...f, analiseRiscos: updatedList };
-    });
+    const upsert = (list: RiscoMitigadoFicha[]) =>
+      list.some(r => r.id === risco.id)
+        ? list.map(r => (r.id === risco.id ? risco : r))
+        : [...list, risco];
+
+    updateActiveScope(
+      t => ({ ...t, analiseRiscos: upsert(t.analiseRiscos) }),
+      f => ({ ...f, analiseRiscos: upsert(f.analiseRiscos) }),
+      risco.id
+    );
     setIsEditRiscoOpen(false);
     setEditingRisco(null);
   };
 
   const handleDeleteRisco = (id: string) => {
     if (confirm('Deseja excluir esta análise de risco e mitigação?')) {
-      updateActiveFicha(f => ({
-        ...f,
-        analiseRiscos: f.analiseRiscos.filter(r => r.id !== id)
-      }));
+      updateActiveScope(
+        t => ({ ...t, analiseRiscos: t.analiseRiscos.filter(r => r.id !== id) }),
+        f => ({ ...f, analiseRiscos: f.analiseRiscos.filter(r => r.id !== id) }),
+        id
+      );
     }
   };
 
@@ -495,7 +605,9 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                     </span>
                   </div>
                   <span className="text-[11px] font-bold font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                    {ficha.solucoesIniciativas.length} Soluções
+                    {ficha.temas && ficha.temas.length > 0
+                      ? `${ficha.temas.length} Temas · ${ficha.solucoesIniciativas.length} Soluções`
+                      : `${ficha.solucoesIniciativas.length} Soluções`}
                   </span>
                 </div>
 
@@ -587,16 +699,23 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
           
           {/* Objective Title Banner */}
           <div className="p-5 sm:p-6 bg-gradient-to-r from-emerald-50 via-teal-50 to-white rounded-2xl border border-emerald-300 shadow-2xs mb-6">
-            <div className="flex items-center gap-2.5 mb-2">
+            <div className="flex flex-wrap items-center gap-2.5 mb-2">
               <span className="px-3 py-1 rounded-lg bg-[#006837] text-white font-mono text-xs font-black uppercase tracking-wider shadow-xs">
                 OBJETIVO ESTRATÉGICO {activeFicha.codigoObjetivo}
               </span>
+              {activeTema && (
+                <span className="px-3 py-1 rounded-lg bg-emerald-800 text-emerald-50 font-mono text-xs font-bold uppercase tracking-wider shadow-xs">
+                  TEMA {activeTema.codigoTema} — {activeTema.nomeTema}
+                </span>
+              )}
               <span className="text-xs font-bold text-emerald-800 uppercase tracking-wide">
                 PERSPECTIVA: {activeFicha.perspectivaBsc.replace('_', ' ')}
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight uppercase">
-              {activeFicha.codigoObjetivo} {activeFicha.nomeObjetivo}
+              {activeTema
+                ? `TEMA ${activeTema.codigoTema} — ${activeTema.nomeTema}`
+                : `${activeFicha.codigoObjetivo} ${activeFicha.nomeObjetivo}`}
             </h2>
             <p className="text-base sm:text-lg font-semibold text-emerald-950 mt-2 italic border-l-4 border-[#006837] pl-3.5 leading-snug">
               “{activeFicha.enunciado.replace(/^"|"$/g, '')}”
@@ -618,13 +737,13 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                 Unidade Responsável / Líder
               </span>
               <p className="font-bold text-slate-900 text-sm">
-                {activeFicha.unidadeResponsavelLider}
+                {viewData.unidadeResponsavelLider}
               </p>
               <span className="font-mono font-bold uppercase text-slate-400 block text-[10px] tracking-wider pt-2">
                 Unidades Parceiras / Corresponsáveis
               </span>
               <p className="text-slate-700 leading-relaxed font-medium">
-                {activeFicha.unidadesParceiras}
+                {viewData.unidadesParceiras}
               </p>
             </div>
 
@@ -633,20 +752,85 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                 Responsável pelo Preenchimento / Cargo
               </span>
               <p className="font-bold text-slate-900 text-sm">
-                {activeFicha.responsavelPreenchimento}
+                {viewData.responsavelPreenchimento}
               </p>
               <p className="text-slate-600 font-medium">
-                {activeFicha.cargoResponsavel}
+                {viewData.cargoResponsavel}
               </p>
               <span className="font-mono font-bold uppercase text-slate-400 block text-[10px] tracking-wider pt-2">
                 Data de Elaboração / Revisão
               </span>
               <p className="text-emerald-800 font-mono font-bold">
-                {activeFicha.dataElaboracaoRevisao}
+                {viewData.dataElaboracaoRevisao}
               </p>
             </div>
           </div>
         </div>
+
+        {/* THEME SELECTOR BUTTONS BAR (BELOW DOCUMENT HEADER METADATA DIV) */}
+        {temasList && (
+          <div className="px-6 sm:px-8 py-4 bg-emerald-50/70 border-b border-emerald-200 space-y-3 print:hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-950 uppercase tracking-wide">
+                <Layers className="w-4 h-4 text-[#006837]" />
+                <span>Selecione o Tema da Ficha Técnica ({temasList.length} Temas Oficiais):</span>
+              </div>
+              <span className="text-[11px] font-mono text-emerald-800 font-semibold">
+                {activeTema
+                  ? `Visualizando Tema ${activeTema.codigoTema} · ${activeTema.solucoesIniciativas.length} Iniciativas · ${activeTema.indicadoresMetas.length} Indicadores`
+                  : `Visão Consolidada · ${activeFicha.solucoesIniciativas.length} Iniciativas · ${activeFicha.indicadoresMetas.length} Indicadores`}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {temasList.map((tema) => {
+                const isSelectedTema = activeTema?.id === tema.id;
+                return (
+                  <button
+                    key={tema.id}
+                    type="button"
+                    onClick={() => setSelectedTemaId(tema.id)}
+                    className={`px-3.5 py-2.5 rounded-xl border text-left text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                      isSelectedTema
+                        ? 'bg-[#006837] text-white border-[#004d26] shadow-md'
+                        : 'bg-white text-slate-800 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50'
+                    }`}
+                  >
+                    <span
+                      className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-black ${
+                        isSelectedTema
+                          ? 'bg-white/20 text-white'
+                          : 'bg-emerald-100 text-[#006837]'
+                      }`}
+                    >
+                      Tema {tema.codigoTema}
+                    </span>
+                    <span>{tema.nomeTema}</span>
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => setSelectedTemaId('CONSOLIDADO')}
+                className={`px-3.5 py-2.5 rounded-xl border text-left text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                  isConsolidadoTemas
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400 hover:text-slate-900'
+                }`}
+              >
+                <span
+                  className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-black ${
+                    isConsolidadoTemas ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  Geral
+                </span>
+                <span>Visão Consolidada (Todos os Temas)</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* DOCUMENT BODY SECTIONS */}
         <div className="p-6 sm:p-8 space-y-10">
@@ -675,11 +859,11 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
 
             <p className="text-xs text-slate-600 leading-relaxed">
               Conforme estabelecido na arquitetura corporativa do Mapa Estratégico do SENAR-AR/RO para o ciclo 2027–2030,
-              as diretrizes e resultados esperados para o Objetivo Estratégico {activeFicha.codigoObjetivo} estruturam-se em eixos norteadores permanentes:
+              as diretrizes e resultados esperados para {activeTema ? `o Tema ${activeTema.codigoTema} (${activeTema.nomeTema})` : `o Objetivo Estratégico ${activeFicha.codigoObjetivo}`} estruturam-se em eixos norteadores permanentes:
             </p>
 
             <div className="space-y-3">
-              {activeFicha.diretrizesResultados.map((diretriz, idx) => {
+              {viewData.diretrizesResultados.map((diretriz, idx) => {
                 const parts = diretriz.split(':');
                 const title = parts[0];
                 const content = parts.slice(1).join(':');
@@ -714,12 +898,13 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
               </div>
               <button
                 onClick={() => {
+                  const prefix = activeTema ? activeTema.codigoTema : activeFicha.codigoObjetivo;
                   setEditingIniciativa({
                     id: `sol-${Date.now()}`,
-                    codigo: `${activeFicha.codigoObjetivo}.${activeFicha.solucoesIniciativas.length + 1}`,
+                    codigo: `${prefix}.${viewData.solucoesIniciativas.length + 1}`,
                     solucaoIniciativa: '',
                     vinculoResultadoEsperado: '',
-                    unidadeResponsavel: activeFicha.unidadeResponsavelLider,
+                    unidadeResponsavel: viewData.unidadeResponsavelLider,
                     unidadesParceiras: '',
                     detalhamentoTecnico: ''
                   });
@@ -746,7 +931,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white text-slate-700">
-                  {activeFicha.solucoesIniciativas.map((iniciativa) => (
+                  {viewData.solucoesIniciativas.map((iniciativa) => (
                     <tr key={iniciativa.id} className="hover:bg-emerald-50/40 transition-colors">
                       <td className="p-3.5 font-mono font-bold text-center text-[#006837] bg-slate-50/60">
                         {iniciativa.codigo}
@@ -797,7 +982,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                 <span>Detalhamento Técnico das Soluções Propostas:</span>
               </h4>
               <div className="space-y-3.5 divide-y divide-slate-200 text-xs text-slate-700 leading-relaxed">
-                {activeFicha.solucoesIniciativas.map((sol) => (
+                {viewData.solucoesIniciativas.map((sol) => (
                   <div key={sol.id} className="pt-3 first:pt-0">
                     <p>
                       <strong className="text-slate-900 font-bold">
@@ -826,9 +1011,10 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
               </div>
               <button
                 onClick={() => {
+                  const prefix = activeTema ? activeTema.codigoTema : activeFicha.codigoObjetivo;
                   setEditingKpi({
                     id: `kpi-${Date.now()}`,
-                    codigo: `${activeFicha.codigoObjetivo}.${activeFicha.indicadoresMetas.length + 1}`,
+                    codigo: `${prefix}.${viewData.indicadoresMetas.length + 1}`,
                     nome: '',
                     unidadeMedida: 'Percentual (%)',
                     linhaBase2026: '',
@@ -866,7 +1052,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white text-slate-700">
-                  {activeFicha.indicadoresMetas.map((kpi) => (
+                  {viewData.indicadoresMetas.map((kpi) => (
                     <tr key={kpi.id} className="hover:bg-emerald-50/40 transition-colors">
                       <td className="p-3.5 font-mono font-bold text-center text-[#006837] bg-slate-50/60">
                         {kpi.codigo}
@@ -956,9 +1142,10 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
               </div>
               <button
                 onClick={() => {
+                  const prefix = activeTema ? activeTema.codigoTema : activeFicha.codigoObjetivo;
                   setEditingCronograma({
                     id: `cron-${Date.now()}`,
-                    codigo: `${activeFicha.codigoObjetivo}.${activeFicha.cronogramaOrcamento.length + 1}`,
+                    codigo: `${prefix}.${viewData.cronogramaOrcamento.length + 1}`,
                     tipoPlano: '',
                     iniciativaEstrategica: '',
                     ano2027: 'Q1-Q4',
@@ -1002,7 +1189,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white text-slate-700">
-                  {activeFicha.cronogramaOrcamento.map((cron) => (
+                  {viewData.cronogramaOrcamento.map((cron) => (
                     <tr key={cron.id} className="hover:bg-emerald-50/40 transition-colors">
                       <td className="p-3.5 font-mono font-bold text-center text-[#006837] bg-slate-50/60">
                         {cron.codigo}
@@ -1024,19 +1211,19 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                       <td className="p-3.5 text-center text-[11px] text-slate-600 leading-snug">{cron.ano2029}</td>
                       <td className="p-3.5 text-center text-[11px] text-slate-600 leading-snug">{cron.ano2030}</td>
                       <td className="p-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
-                        {formatMoney(Number(cron.orcamento2027) || 0)}
+                        {cron.valorTexto2027 || formatMoney(Number(cron.orcamento2027) || 0)}
                       </td>
                       <td className="p-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
-                        {formatMoney(Number(cron.orcamento2028) || 0)}
+                        {cron.valorTexto2028 || formatMoney(Number(cron.orcamento2028) || 0)}
                       </td>
                       <td className="p-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
-                        {formatMoney(getOrc2029(cron))}
+                        {cron.valorTexto2029 || formatMoney(getOrc2029(cron))}
                       </td>
                       <td className="p-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
-                        {formatMoney(getOrc2030(cron))}
+                        {cron.valorTexto2030 || formatMoney(getOrc2030(cron))}
                       </td>
                       <td className="p-3.5 text-right font-mono font-bold text-emerald-950 bg-emerald-50/50 whitespace-nowrap">
-                        {formatMoney(Number(cron.total) || 0)}
+                        {cron.valorTextoTotal || formatMoney(Number(cron.total) || 0)}
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
@@ -1065,29 +1252,36 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                     <td className="p-3.5 text-center font-mono text-emerald-900">TOTAL</td>
                     {hasTipoPlanoColumn && <td className="p-3.5 text-center text-slate-400">—</td>}
                     <td className="p-3.5 uppercase tracking-wide text-emerald-950">
-                      Investimento Estratégico Consolidado ({activeFicha.codigoObjetivo})
+                      {activeTema
+                        ? `Investimento Estratégico Consolidado (${activeTema.nomeTema})`
+                        : `Investimento Estratégico Consolidado (${activeFicha.codigoObjetivo})`}
                     </td>
                     <td colSpan={4} className="p-3.5 text-center text-slate-400">—</td>
                     <td className="p-3.5 text-right font-mono text-emerald-900 whitespace-nowrap">
-                      {formatMoney(totalOrcamento2027)}
+                      {formatMoney(totalOrcamento2027)}{hasValorTextoConvenios ? '*' : ''}
                     </td>
                     <td className="p-3.5 text-right font-mono text-emerald-900 whitespace-nowrap">
-                      {formatMoney(totalOrcamento2028)}
+                      {formatMoney(totalOrcamento2028)}{hasValorTextoConvenios ? '*' : ''}
                     </td>
                     <td className="p-3.5 text-right font-mono text-emerald-900 whitespace-nowrap">
-                      {formatMoney(totalOrcamento2029)}
+                      {formatMoney(totalOrcamento2029)}{hasValorTextoConvenios ? '*' : ''}
                     </td>
                     <td className="p-3.5 text-right font-mono text-emerald-900 whitespace-nowrap">
-                      {formatMoney(totalOrcamento2030)}
+                      {formatMoney(totalOrcamento2030)}{hasValorTextoConvenios ? '*' : ''}
                     </td>
                     <td className="p-3.5 text-right font-mono font-black text-emerald-950 bg-emerald-100/80 whitespace-nowrap">
-                      {formatMoney(totalGeralOrcamento)}
+                      {formatMoney(totalGeralOrcamento)}{hasValorTextoConvenios ? '*' : ''}
                     </td>
                     <td></td>
                   </tr>
                 </tbody>
               </table>
             </div>
+            {viewData.notaMetodologicaOrcamento && (
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 leading-relaxed italic">
+                {viewData.notaMetodologicaOrcamento}
+              </div>
+            )}
           </section>
 
           {/* ========================================================================= */}
@@ -1120,7 +1314,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                 </span>
                 <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-                  {activeFicha.governanca.statusGeral}
+                  {viewData.governanca.statusGeral}
                 </span>
               </div>
 
@@ -1129,7 +1323,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                   Percentual de Execução
                 </span>
                 <span className="font-mono font-black text-slate-900 text-base text-[#006837]">
-                  {activeFicha.governanca.percentualExecucao.toFixed(1)}%
+                  {viewData.governanca.percentualExecucao.toFixed(1)}%
                 </span>
                 <span className="text-[10px] text-slate-500 block mt-0.5">Ciclo Inicia em 2027</span>
               </div>
@@ -1139,7 +1333,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                   Periodicidade de Monitoramento
                 </span>
                 <span className="font-semibold text-slate-800 text-xs leading-snug">
-                  {activeFicha.governanca.periodicidadeMonitoramento}
+                  {viewData.governanca.periodicidadeMonitoramento}
                 </span>
               </div>
 
@@ -1148,7 +1342,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                   Última Atualização
                 </span>
                 <span className="font-mono font-bold text-emerald-800 text-sm">
-                  {activeFicha.governanca.ultimaAtualizacao}
+                  {viewData.governanca.ultimaAtualizacao}
                 </span>
               </div>
             </div>
@@ -1159,7 +1353,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                 Ritos Institucionais de Reporte e Governança Corporativa:
               </h4>
               <ul className="space-y-2 text-xs text-slate-700">
-                {activeFicha.governanca.ritosInstitucionais.map((rito, i) => (
+                {viewData.governanca.ritosInstitucionais.map((rito, i) => (
                   <li key={i} className="flex items-start gap-2.5 leading-relaxed">
                     <CheckCircle2 className="w-4 h-4 text-[#006837] shrink-0 mt-0.5" />
                     <span>{rito}</span>
@@ -1228,7 +1422,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white text-slate-700">
-                  {activeFicha.analiseRiscos.map((risco) => (
+                  {viewData.analiseRiscos.map((risco) => (
                     <tr key={risco.id} className="hover:bg-amber-50/30 transition-colors align-top">
                       <td className="p-3.5 font-bold text-slate-900">
                         <div className="flex items-start gap-2">
@@ -1347,17 +1541,17 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
               <h4 className="font-bold text-slate-900 uppercase tracking-wide">
                 Fundamentação Técnica e Alinhamento Estratégico:
               </h4>
-              <p>{activeFicha.fundamentacaoTecnica}</p>
+              <p>{viewData.fundamentacaoTecnica}</p>
             </div>
 
             {/* Signature & Technical Validation */}
             <div className="pt-6 border-t border-slate-200 flex flex-col items-center justify-center text-center">
               <div className="w-72 border-b border-slate-400 mb-2" />
               <p className="font-bold text-slate-900 text-xs sm:text-sm">
-                {activeFicha.assinaturaResponsavel || activeFicha.responsavelPreenchimento}
+                {activeFicha.assinaturaResponsavel || viewData.responsavelPreenchimento}
               </p>
               <p className="text-xs text-slate-500">
-                {activeFicha.cargoResponsavel}
+                {viewData.cargoResponsavel}
               </p>
               <span className="text-[10px] font-mono text-emerald-800 uppercase tracking-wider mt-1">
                 SENAR-AR/RO · Ciclo 2027–2030
@@ -1397,21 +1591,36 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
               e.preventDefault();
               const form = e.target as HTMLFormElement;
               const formData = new FormData(form);
-              updateActiveFicha(f => ({
-                ...f,
-                codigoObjetivo: formData.get('codigoObjetivo') as string,
-                nomeObjetivo: formData.get('nomeObjetivo') as string,
-                enunciado: formData.get('enunciado') as string,
-                desdobramento: (formData.get('desdobramento') as string) || undefined,
-                perspectivaBsc: formData.get('perspectivaBsc') as PerspectivaBSCType,
+              const metaPatch = {
                 unidadeResponsavelLider: formData.get('unidadeResponsavelLider') as string,
                 unidadesParceiras: formData.get('unidadesParceiras') as string,
                 responsavelPreenchimento: formData.get('responsavelPreenchimento') as string,
                 cargoResponsavel: formData.get('cargoResponsavel') as string,
                 dataElaboracaoRevisao: formData.get('dataElaboracaoRevisao') as string,
-                fundamentacaoTecnica: formData.get('fundamentacaoTecnica') as string,
-                assinaturaResponsavel: (formData.get('assinaturaResponsavel') as string) || f.assinaturaResponsavel
-              }));
+                fundamentacaoTecnica: formData.get('fundamentacaoTecnica') as string
+              };
+              const objPatch = {
+                codigoObjetivo: formData.get('codigoObjetivo') as string,
+                nomeObjetivo: formData.get('nomeObjetivo') as string,
+                enunciado: formData.get('enunciado') as string,
+                desdobramento: (formData.get('desdobramento') as string) || undefined,
+                perspectivaBsc: formData.get('perspectivaBsc') as PerspectivaBSCType
+              };
+
+              updateActiveFicha(f => {
+                const base = {
+                  ...f,
+                  ...objPatch,
+                  assinaturaResponsavel: (formData.get('assinaturaResponsavel') as string) || f.assinaturaResponsavel
+                };
+                if (f.temas && f.temas.length > 0 && activeTema) {
+                  const updatedTemas = f.temas.map(t =>
+                    t.id === activeTema.id ? { ...t, ...metaPatch } : t
+                  );
+                  return { ...base, temas: updatedTemas };
+                }
+                return { ...base, ...metaPatch };
+              });
               setIsEditHeaderOpen(false);
             }} className="space-y-4 mt-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
@@ -1447,29 +1656,29 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Unidade Responsável / Líder</label>
-                <input name="unidadeResponsavelLider" defaultValue={activeFicha.unidadeResponsavelLider} required className="w-full p-2 border rounded-lg" />
+                <input name="unidadeResponsavelLider" defaultValue={viewData.unidadeResponsavelLider} required className="w-full p-2 border rounded-lg" />
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Unidades Parceiras / Corresponsáveis</label>
-                <textarea name="unidadesParceiras" defaultValue={activeFicha.unidadesParceiras} rows={2} className="w-full p-2 border rounded-lg" />
+                <textarea name="unidadesParceiras" defaultValue={viewData.unidadesParceiras} rows={2} className="w-full p-2 border rounded-lg" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Responsável Preenchimento</label>
-                  <input name="responsavelPreenchimento" defaultValue={activeFicha.responsavelPreenchimento} required className="w-full p-2 border rounded-lg" />
+                  <input name="responsavelPreenchimento" defaultValue={viewData.responsavelPreenchimento} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Cargo</label>
-                  <input name="cargoResponsavel" defaultValue={activeFicha.cargoResponsavel} required className="w-full p-2 border rounded-lg" />
+                  <input name="cargoResponsavel" defaultValue={viewData.cargoResponsavel} required className="w-full p-2 border rounded-lg" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Data Elaboração / Revisão</label>
-                  <input name="dataElaboracaoRevisao" defaultValue={activeFicha.dataElaboracaoRevisao} required className="w-full p-2 border rounded-lg" />
+                  <input name="dataElaboracaoRevisao" defaultValue={viewData.dataElaboracaoRevisao} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Assinatura Institucional</label>
@@ -1479,7 +1688,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Fundamentação Técnica e Alinhamento Estratégico</label>
-                <textarea name="fundamentacaoTecnica" defaultValue={activeFicha.fundamentacaoTecnica} rows={3} className="w-full p-2 border rounded-lg" />
+                <textarea name="fundamentacaoTecnica" defaultValue={viewData.fundamentacaoTecnica} rows={3} className="w-full p-2 border rounded-lg" />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t">
@@ -1863,44 +2072,45 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
               const formData = new FormData(form);
               const ritosRaw = formData.get('ritos') as string;
               const ritosArray = ritosRaw.split('\n').filter(r => r.trim().length > 0);
+              const nextGov = {
+                statusGeral: formData.get('statusGeral') as string,
+                percentualExecucao: Number(formData.get('percentualExecucao')) || 0,
+                periodicidadeMonitoramento: formData.get('periodicidadeMonitoramento') as string,
+                ultimaAtualizacao: formData.get('ultimaAtualizacao') as string,
+                ritosInstitucionais: ritosArray
+              };
 
-              updateActiveFicha(f => ({
-                ...f,
-                governanca: {
-                  statusGeral: formData.get('statusGeral') as string,
-                  percentualExecucao: Number(formData.get('percentualExecucao')) || 0,
-                  periodicidadeMonitoramento: formData.get('periodicidadeMonitoramento') as string,
-                  ultimaAtualizacao: formData.get('ultimaAtualizacao') as string,
-                  ritosInstitucionais: ritosArray
-                }
-              }));
+              updateActiveScope(
+                t => ({ ...t, governanca: nextGov }),
+                f => ({ ...f, governanca: nextGov })
+              );
               setIsEditGovernancaOpen(false);
             }} className="space-y-3.5 mt-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Status Geral</label>
-                  <input name="statusGeral" defaultValue={activeFicha.governanca.statusGeral} required className="w-full p-2 border rounded-lg" />
+                  <input name="statusGeral" defaultValue={viewData.governanca.statusGeral} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Percentual Execução (%)</label>
-                  <input type="number" step="0.1" name="percentualExecucao" defaultValue={activeFicha.governanca.percentualExecucao} required className="w-full p-2 border rounded-lg" />
+                  <input type="number" step="0.1" name="percentualExecucao" defaultValue={viewData.governanca.percentualExecucao} required className="w-full p-2 border rounded-lg" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Periodicidade</label>
-                  <input name="periodicidadeMonitoramento" defaultValue={activeFicha.governanca.periodicidadeMonitoramento} required className="w-full p-2 border rounded-lg" />
+                  <input name="periodicidadeMonitoramento" defaultValue={viewData.governanca.periodicidadeMonitoramento} required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Última Atualização</label>
-                  <input name="ultimaAtualizacao" defaultValue={activeFicha.governanca.ultimaAtualizacao} required className="w-full p-2 border rounded-lg" />
+                  <input name="ultimaAtualizacao" defaultValue={viewData.governanca.ultimaAtualizacao} required className="w-full p-2 border rounded-lg" />
                 </div>
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Ritos Institucionais de Reporte (um por linha)</label>
-                <textarea name="ritos" defaultValue={activeFicha.governanca.ritosInstitucionais.join('\n')} rows={5} className="w-full p-2 border rounded-lg" />
+                <textarea name="ritos" defaultValue={viewData.governanca.ritosInstitucionais.join('\n')} rows={5} className="w-full p-2 border rounded-lg" />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t">
@@ -1928,10 +2138,10 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
               const formData = new FormData(form);
               const text = formData.get('diretrizes') as string;
               const list = text.split('\n\n').map(t => t.trim()).filter(t => t.length > 0);
-              updateActiveFicha(f => ({
-                ...f,
-                diretrizesResultados: list
-              }));
+              updateActiveScope(
+                t => ({ ...t, diretrizesResultados: list }),
+                f => ({ ...f, diretrizesResultados: list })
+              );
               setIsEditDiretrizesOpen(false);
             }} className="space-y-4 mt-4 text-xs">
               <p className="text-slate-600">
@@ -1941,7 +2151,7 @@ export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
                 <label className="font-bold text-slate-700 block mb-1">Eixos Norteadores / Diretrizes</label>
                 <textarea
                   name="diretrizes"
-                  defaultValue={activeFicha.diretrizesResultados.join('\n\n')}
+                  defaultValue={viewData.diretrizesResultados.join('\n\n')}
                   rows={10}
                   className="w-full p-3 border rounded-xl font-sans"
                 />

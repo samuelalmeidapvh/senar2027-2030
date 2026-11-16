@@ -19,7 +19,6 @@ import {
   X,
   ArrowRight,
   Target,
-  Briefcase,
   Plus,
   Edit3,
   Check,
@@ -212,7 +211,72 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
   const kpisAssociados = kpis.filter(k =>
     objetivo.kpisAssociados.includes(k.id)
   );
-  const planosAssociados = planos.filter(p => p.objetivoId === objetivo.id);
+
+  // Calcula o Progresso BSC dinamicamente com base na evolução das metas dos indicadores vinculados
+  const progressoBsc: number = (() => {
+    if (useFichasMode) {
+      const todosIndicadores = clientesFichas.flatMap(f => f.indicadoresMetas);
+      if (todosIndicadores.length === 0) return objetivo.progressoPercentual;
+
+      const soma = todosIndicadores.reduce((acc, ind) => {
+        const hasExplicitExec = ANOS_SERIE.some((yr) => {
+          const val = ind[`exec${yr}` as keyof IndicadorMetaFicha] as string | undefined;
+          return Boolean(val && val.trim() !== '');
+        });
+
+        if (!hasExplicitExec) {
+          const baseIsPercent = ind.linhaBase2026?.includes('%');
+          const meta27IsPercent = ind.meta2027?.includes('%');
+          // Se a linha base está em % (taxa de crescimento) e a meta 2027 é absoluta, a execução 2027-2030 ainda não iniciou
+          if (baseIsPercent && !meta27IsPercent) {
+            return acc;
+          }
+        }
+
+        const analytics = buildFichaKpiAnalytics(ind);
+        return acc + Math.min(100, Math.max(0, analytics.ratioPercent));
+      }, 0);
+
+      return soma / todosIndicadores.length;
+    }
+
+    if (kpisAssociados.length === 0) return objetivo.progressoPercentual;
+
+    const somaKpis = kpisAssociados.reduce((acc, kpi) => {
+      const yearsDesc: AnoSerie[] = ['2030', '2029', '2028', '2027', '2026', '2025'];
+      let execVal: number | null = null;
+      let metaVal: number | null = null;
+
+      for (const yr of yearsDesc) {
+        const eNum = parseKpiNumericValue(getDefaultYearExec(kpi, yr));
+        const mNum = parseKpiNumericValue(getDefaultYearMeta(kpi, yr));
+        if (eNum !== null && mNum !== null) {
+          execVal = eNum;
+          metaVal = mNum;
+          break;
+        }
+      }
+
+      if (execVal === null || metaVal === null) {
+        execVal = kpi.realizado;
+        metaVal = kpi.meta;
+      }
+
+      if (metaVal <= 0) return acc;
+      const ratio =
+        kpi.polaridade === 'MENOR_MELHOR'
+          ? execVal <= 0
+            ? 100
+            : (metaVal / execVal) * 100
+          : (execVal / metaVal) * 100;
+
+      return acc + Math.min(100, Math.max(0, ratio));
+    }, 0);
+
+    return somaKpis / kpisAssociados.length;
+  })();
+
+  const progressoBscFormatado = `${progressoBsc.toFixed(1).replace('.', ',')}%`;
 
   const handleOpenAddNew = () => {
     const defaultFichaId =
@@ -451,7 +515,7 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
             </div>
             <div>
               <span className="text-slate-400 text-[11px] font-medium block">Progresso BSC</span>
-              <span className="font-bold text-[#006837] font-mono tabular-nums">{objetivo.progressoPercentual}%</span>
+              <span className="font-bold text-[#006837] font-mono tabular-nums">{progressoBscFormatado}</span>
             </div>
             <div className="col-span-2 sm:col-span-1">
               <span className="text-slate-400 text-[11px] font-medium block">Impacto Institucional</span>
@@ -1058,27 +1122,6 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
             )}
           </div>
 
-          {/* Linked Action Plans (5W2H) */}
-          {planosAssociados.length > 0 && (
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-2.5 flex items-center gap-1.5">
-                <Briefcase className="w-4 h-4 text-emerald-700" />
-                <span>Planos de Ação 5W2H Vinculados:</span>
-              </h4>
-
-              <div className="space-y-2">
-                {planosAssociados.map(p => (
-                  <div key={p.id} className="p-3 rounded-lg border border-slate-100 bg-slate-50/70 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-mono text-[10px] font-bold text-slate-500 mr-2">{p.codigo}</span>
-                      <strong className="text-slate-800">{p.titulo}</strong>
-                    </div>
-                    <span className="font-mono font-semibold text-[#006837] tabular-nums">{p.progressoPercentual}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer Actions */}

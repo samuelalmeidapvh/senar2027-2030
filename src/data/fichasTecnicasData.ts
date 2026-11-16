@@ -1,4 +1,5 @@
 import { FichaTecnicaObjetivo } from '../types/strategic';
+import { FICHA_02_TEMAS } from './ficha02TemasData';
 
 export const FICHAS_TECNICAS_INICIAIS: FichaTecnicaObjetivo[] = [
   // =========================================================================
@@ -879,91 +880,51 @@ export const FICHAS_TECNICAS_INICIAIS: FichaTecnicaObjetivo[] = [
 
   // =========================================================================
   // 5. PERSPECTIVA: PROCESSOS INTERNOS — 02 EXCELÊNCIA NA GESTÃO (DAF)
+  // Organizada por Temas Oficiais (05, 06, 07 e 09)
   // =========================================================================
   {
     id: 'ficha-oe-02-gestao',
     codigoObjetivo: '02',
     nomeObjetivo: 'EXCELÊNCIA NA GESTÃO',
     enunciado:
-      'Gerir com excelência os recursos financeiros e humanos, os processos operacionais com foco no aumento da maturidade de gestão.',
+      'Gerir com excelência as finanças, a operação e os recursos humanos com foco no aumento da maturidade de gestão.',
     perspectivaBsc: 'PROCESSOS_INTERNOS',
-    unidadeResponsavelLider: 'Departamento Administrativo e Financeiro (DAF)',
-    unidadesParceiras: 'Superintendência, Recursos Humanos, Contabilidade, Compras e ACI',
-    responsavelPreenchimento: 'Gerência Administrativa e Financeira',
-    cargoResponsavel: 'Gerente DAF - SENAR-AR/RO',
-    dataElaboracaoRevisao: 'Outubro de 2026 (Ciclo de Planejamento Estratégico 2027–2030)',
-    diretrizesResultados: [
-      'Equilíbrio Orçamentário e Financeiro: Execução eficiente do orçamento com observância estrita aos limites regimentais e otimização dos recursos arrecadados.',
-      'Gestão de Pessoas e Desenvolvimento de Competências: Plano de cargos e salários, capacitação continuada e retenção de talentos estratégicos.',
-      'Celeridade nos Processos de Aquisições e Suprimentos: Redução do lead time de compras para atendimento tempestivo das demandas das unidades no interior.',
-      'Maturidade dos Processos de Suporte Operacional: Padronização de fluxos de trabalho e conformidade com manuais e instruções normativas.'
-    ],
-    solucoesIniciativas: [
-      {
-        id: 'sol-02-1',
-        codigo: '02.1',
-        solucaoIniciativa: 'Modernização do Sistema Integrado de Gestão Orçamentária e Financeira (ERP)',
-        vinculoResultadoEsperado: 'Transparência, eficiência orçamentária e fechamento tempestivo de contas',
-        unidadeResponsavel: 'DAF / Contabilidade',
-        unidadesParceiras: 'TI, ACI',
-        detalhamentoTecnico:
-          'Integração em tempo real das conciliações bancárias, liquidações e demonstrativos de execução do PAT.'
-      }
-    ],
-    indicadoresMetas: [
-      {
-        id: 'kpi-f-02-1',
-        codigo: '02.1',
-        nome: 'Índice de Eficiência na Execução Orçamentária do PAT',
-        unidadeMedida: 'Percentual (%)',
-        linhaBase2026: '91,5%',
-        meta2027: '94,0%',
-        meta2028: '96,0%',
-        meta2029: '98,0%',
-        meta2030: '≥ 98,5%',
-        fonteVerificacao: 'Balancetes Contábeis e Demonstrativos Físico-Financeiros'
-      }
-    ],
-    cronogramaOrcamento: [
-      {
-        id: 'cron-02-1',
-        codigo: '02.1',
-        iniciativaEstrategica:
-          'Aperfeiçoamento da Gestão Orçamentária e Capacitação de Fiscais de Contratos',
-        ano2027: 'Q1-Q4',
-        ano2028: 'Q1-Q4',
-        ano2029: 'Q1-Q4',
-        ano2030: 'Q1-Q4',
-        orcamento2027: 120000,
-        orcamento2028: 150000,
-        orcamento2029: 90000,
-        orcamento2030: 90000,
-        orcamento2029_30: 180000,
-        total: 450000
-      }
-    ],
+    unidadeResponsavelLider:
+      'Superintendência / Comissão de Planejamento Estratégico e Departamento Administrativo e Financeiro (DAF)',
+    unidadesParceiras:
+      'DETEC, DATEG, Setor Jurídico (AJU), Assessoria de Controle Interno (ACI), DAF / TI, Assessoria de Comunicação (ACS), DPO, CPL (Portaria nº 47/2026), CPMP (Portaria nº 48/2026) e Sindicatos Rurais',
+    responsavelPreenchimento: 'Superintendência / Gerência do DAF',
+    cargoResponsavel: 'Comissão de Planejamento Estratégico & Gerência Administrativa e Financeira',
+    dataElaboracaoRevisao: 'Novembro de 2026 (Ciclo de Planejamento 2027–2030)',
+    diretrizesResultados: FICHA_02_TEMAS.flatMap(t =>
+      t.diretrizesResultados.map(d => `[Tema ${t.codigoTema} — ${t.nomeTema}] ${d}`)
+    ),
+    solucoesIniciativas: FICHA_02_TEMAS.flatMap(t => t.solucoesIniciativas),
+    indicadoresMetas: FICHA_02_TEMAS.flatMap(t => t.indicadoresMetas),
+    cronogramaOrcamento: FICHA_02_TEMAS.flatMap(t => t.cronogramaOrcamento),
+    notaMetodologicaOrcamento:
+      'Consolidado dos 4 Temas Estruturantes do Objetivo Estratégico Excelência na Gestão (Tema 05 Governança, Planejamento e Gestão Estratégica; Tema 06 Gestão de Pessoas; Tema 07 Infraestrutura e Patrimônio; Tema 09 Processos, Logística e Suprimentos). Selecione um tema específico acima para visualizar o detalhamento individual e sua nota metodológica própria.',
     governanca: {
-      statusGeral: 'Em Execução / Eficiência Alta',
-      percentualExecucao: 94.0,
-      periodicidadeMonitoramento: 'Mensal',
-      ultimaAtualizacao: '20/10/2026',
+      statusGeral: 'Não iniciada (Ciclo Inicia em 2027)',
+      percentualExecucao: 0.0,
+      periodicidadeMonitoramento: 'Trimestral (com reportes mensais internos e alinhamento orçamentário)',
+      ultimaAtualizacao: 'Novembro/2026',
       ritosInstitucionais: [
-        '1. Reunião de Acompanhamento Orçamentário e Financeiro Mensal com a Superintendência.',
-        '2. Prestação de Contas Mensal e Parecer do Conselho Fiscal.'
+        '1. Reuniões Periódicas de Alinhamento e Acompanhamento Orçamentário Integrado (SISTEGO / TOTVS RM, proporcionalidade 80%/20%).',
+        '2. Reporte Operacional Mensal da Gerência do DAF (RH, PCCR, Contratos Prediais, Frota/Cautelas, CNAB, ContratosGov, PVPS e Visitas da Arrecadação).',
+        '3. Reunião Trimestral de Avaliação Estratégica (RAE) e Auditorias Semestrais/Anuais de Conformidade junto a ACI, AJU, DPO, CPMP e CPL.'
       ]
     },
-    analiseRiscos: [
-      {
-        id: 'risk-02-1',
-        fatorCritico: 'Flutuações na Arrecadação da Contribuição Previdenciária Rural',
-        impactoPotencial: 'Necessidade de contingenciamento preventivo no Plano Anual de Trabalho.',
-        providenciaMitigadora:
-          'Monitoramento semanal de ingressos e constituição de reserva estratégica orçamentária.'
-      }
-    ],
+    analiseRiscos: FICHA_02_TEMAS.flatMap(t =>
+      t.analiseRiscos.map(r => ({
+        ...r,
+        codigo: r.codigo || `Tema ${t.codigoTema}`
+      }))
+    ),
+    temas: FICHA_02_TEMAS,
     fundamentacaoTecnica:
-      'Normas de Contabilidade Aplicadas ao Setor Público, Resoluções do Conselho Deliberativo do SENAR e Instruções de Serviço de Gestão Financeira.',
-    assinaturaResponsavel: 'Departamento Administrativo e Financeiro (DAF) - SENAR-AR/RO'
+      'Alinhamento integral ao Mapa Estratégico do SENAR-AR/RO (2027–2030), Planejamento Estratégico Setorial do DAF (2027–2030), Regimento Interno, PCCR (Doc. Ping A-8EC95), Portarias nº 47/2026 (CPL) e nº 48/2026 (CPMP), Regulamento de Licitações e Contratos do SENAR, Normas Brasileiras de Contabilidade (NBC TSP), NRs aplicáveis e Lei nº 13.709/2018 (LGPD).',
+    assinaturaResponsavel: 'Superintendência / Departamento Administrativo e Financeiro (DAF) - SENAR-AR/RO'
   },
 
   // =========================================================================

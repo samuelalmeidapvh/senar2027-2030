@@ -52,11 +52,24 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((o: ObjetivoEstrategico) =>
-            o.id === 'obj-1' || o.codigo === 'OE-01'
-              ? { ...o, perspectiva: 'CLIENTES' }
-              : o
-          );
+          return parsed.map((o: ObjetivoEstrategico) => {
+            if (o.id === 'obj-1' || o.codigo === 'OE-01') {
+              return { ...o, perspectiva: 'CLIENTES' };
+            }
+            if (
+              o.id === 'obj-3' ||
+              o.codigo === 'OE-03' ||
+              o.descricao ===
+                'Gerir com excelência os recursos financeiros e humanos, os processos operacionais com foco no aumento da maturidade de gestão.'
+            ) {
+              return {
+                ...o,
+                descricao:
+                  'Gerir com excelência as finanças, a operação e os recursos humanos com foco no aumento da maturidade de gestão.'
+              };
+            }
+            return o;
+          });
         }
       }
     } catch (e) {
@@ -81,7 +94,26 @@ export default function App() {
       const saved = localStorage.getItem(FICHAS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((f: FichaTecnicaObjetivo) => {
+            if (f.id === 'ficha-oe-02-gestao' && (!f.temas || f.temas.length === 0)) {
+              const official = FICHAS_TECNICAS_INICIAIS.find(o => o.id === 'ficha-oe-02-gestao');
+              if (official) return official;
+            }
+            if (
+              f.id === 'ficha-oe-02-gestao' ||
+              f.enunciado ===
+                'Gerir com excelência os recursos financeiros e humanos, os processos operacionais com foco no aumento da maturidade de gestão.'
+            ) {
+              return {
+                ...f,
+                enunciado:
+                  'Gerir com excelência as finanças, a operação e os recursos humanos com foco no aumento da maturidade de gestão.'
+              };
+            }
+            return f;
+          });
+        }
       }
     } catch (e) {
       console.warn('Erro ao carregar fichas salvas, usando dados oficiais:', e);
