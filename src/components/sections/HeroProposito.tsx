@@ -128,14 +128,6 @@ export const HeroProposito: React.FC<HeroPropositoProps> = ({
                 <Network className="w-4 h-4 text-[#006837]" />
                 <span>Estrutura Organizacional</span>
               </button>
-
-              <button
-                onClick={onOpenGeminiClick}
-                className="px-4 py-2.5 text-sm font-semibold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors inline-flex items-center gap-2 cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4 text-[#008744]" />
-                <span>Análise de IA & BigQuery</span>
-              </button>
             </div>
 
           </div>

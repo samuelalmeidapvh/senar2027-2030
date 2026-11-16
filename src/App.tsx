@@ -32,8 +32,6 @@ import {
 } from './components/modals/MapaRondoniaModal';
 import { FichasTecnicasObjetivosBSC } from './components/sections/FichasTecnicasObjetivosBSC';
 import { KpiDashboard } from './components/sections/KpiDashboard';
-import { PainelGeminiAI } from './components/sections/PainelGeminiAI';
-import { ArquiteturaEspecificacoes } from './components/sections/ArquiteturaEspecificacoes';
 
 import { ObjetivoPopoverModal } from './components/modals/ObjetivoPopoverModal';
 import { AuthLoginModal } from './components/modals/AuthLoginModal';
@@ -500,20 +498,6 @@ export default function App() {
             onSaveComplementaryKpi={handleSaveComplementaryKpi}
             onDeleteComplementaryKpi={handleDeleteComplementaryKpi}
           />
-        </ZebraSection>
-
-        {/* CHAPTER 6: Inteligência Estratégica Gemini AI & GCP BigQuery (Fundo Verde Suave) */}
-        <ZebraSection id="inteligencia-ia" variant="tint">
-          <PainelGeminiAI
-            currentInsight={aiInsight}
-            loading={loadingAi}
-            onGenerateAiAnalysis={handleRunAiAnalysis}
-          />
-        </ZebraSection>
-
-        {/* CHAPTER 7: Documentação Técnica, DDL SQL, APIs e Segurança (Fundo Neutro) */}
-        <ZebraSection id="especificacoes-api" variant="gray">
-          <ArquiteturaEspecificacoes />
         </ZebraSection>
 
       </main>

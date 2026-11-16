@@ -46,20 +46,12 @@ export const FooterInstitutional: React.FC<FooterInstitutionalProps> = ({ onOpen
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-3">Governança & Dados</h4>
+            <h4 className="text-white font-semibold mb-3">Transparência & Gestão</h4>
             <ul className="space-y-2">
-              <li>
-                <button 
-                  onClick={onOpenSpecs}
-                  className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 cursor-pointer text-left"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>DDL SQL & Schemas JSON</span>
-                </button>
-              </li>
-              <li><span className="text-slate-500">Google Cloud Platform & BigQuery</span></li>
-              <li><span className="text-slate-500">Gemini 3.8 Flash Analytical Engine</span></li>
-              <li><span className="text-slate-500">Portal da Transparência TCU</span></li>
+              <li><span className="text-slate-400">SENAR Regional de Rondônia</span></li>
+              <li><span className="text-slate-500">Ciclo Estratégico 2027–2030</span></li>
+              <li><span className="text-slate-500">Sistema FAPERON / Sindicatos Rurais</span></li>
+              <li><span className="text-slate-500">Portal da Transparência</span></li>
             </ul>
           </div>
 

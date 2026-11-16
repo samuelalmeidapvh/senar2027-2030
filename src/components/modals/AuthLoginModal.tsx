@@ -243,13 +243,13 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                 disabled={loading}
                 className="w-full py-2.5 px-4 bg-[#006837] hover:bg-[#004d26] disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
               >
-                {loading ? 'Validando no SQLite...' : 'Entrar no Sistema'}
+                {loading ? 'Autenticando...' : 'Entrar no Sistema'}
                 <ArrowRight className="w-4 h-4" />
               </button>
 
               <div className="pt-3 text-center">
-                <span className="text-[11px] text-slate-500">
-                  Banco Local: <strong>SQLite (data/senar.sqlite)</strong>
+                <span className="text-[11px] text-slate-400">
+                  Acesso seguro restrito ao Sistema FAPERON / SENAR-RO
                 </span>
               </div>
             </form>

@@ -53,16 +53,6 @@ export const HeaderFixed: React.FC<HeaderFixedProps> = ({
           <a href="#kpis-dashboard" className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0">
             KPIs
           </a>
-          <a href="#inteligencia-ia" className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-emerald-800 font-semibold">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            IA & Cloud
-          </a>
-          <button 
-            onClick={onOpenSpecs}
-            className="hover:text-[#006837] transition-colors whitespace-nowrap shrink-0 text-slate-600 cursor-pointer"
-          >
-            APIs & DDL
-          </button>
         </nav>
 
         {/* Zone 3: 1 Primary Action */}
