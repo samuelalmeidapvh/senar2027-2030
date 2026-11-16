@@ -7,11 +7,9 @@ import {
   ArrowRight, 
   CheckCircle2, 
   AlertCircle, 
-  RotateCcw, 
   X,
   Eye,
-  EyeOff,
-  UserCheck
+  EyeOff
 } from 'lucide-react';
 import { UsuarioAutenticado } from '../../types/strategic';
 
@@ -61,7 +59,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
       onLoginSuccess(data.usuario, data.token, data.canEdit);
       onClose();
     } catch (err: any) {
-      setErrorMessage('Falha ao conectar com o servidor local.');
+      setErrorMessage('Falha ao conectar com o banco SQLite local.');
     } finally {
       setLoading(false);
     }
@@ -88,9 +86,9 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
 
       if (data.resetCodeSimulado) {
         setResetCode(data.resetCodeSimulado);
-        setSuccessMessage(`Código de verificação gerado para testes: ${data.resetCodeSimulado}`);
+        setSuccessMessage(`Código de verificação gerado no SQLite: ${data.resetCodeSimulado}`);
       } else {
-        setSuccessMessage('Verifique seu e-mail para obter o código de redefinição.');
+        setSuccessMessage('Verifique o código de redefinição.');
       }
       setMode('RESET');
     } catch (err) {
@@ -123,7 +121,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
         return;
       }
 
-      setSuccessMessage('Senha atualizada com sucesso! Entre agora com sua nova senha.');
+      setSuccessMessage('Senha atualizada com sucesso no SQLite! Faça login agora.');
       setPassword('');
       setMode('LOGIN');
     } catch (err) {
@@ -131,13 +129,6 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  // Preenchimento rápido para demonstração
-  const handleQuickFill = (userEmail: string, pass: string) => {
-    setEmail(userEmail);
-    setPassword(pass);
-    setErrorMessage(null);
   };
 
   return (
@@ -157,7 +148,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 leading-tight">
-                {mode === 'LOGIN' && 'Acesso Restrito & Painel CMS'}
+                {mode === 'LOGIN' && 'Acesso Restrito & Painel Administrativo'}
                 {mode === 'FORGOT' && 'Redefinição de Senha'}
                 {mode === 'RESET' && 'Criar Nova Senha'}
               </h3>
@@ -195,7 +186,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  E-mail Institucional
+                  E-mail de Acesso
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -204,7 +195,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="exemplo@senar-ro.org.br"
+                    placeholder="seu.email@senar-ro.org.br"
                     className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#006837]/30 focus:border-[#006837] transition-all"
                   />
                 </div>
@@ -213,7 +204,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-slate-700">
-                    Senha de Acesso
+                    Senha
                   </label>
                   <button
                     type="button"
@@ -252,52 +243,14 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                 disabled={loading}
                 className="w-full py-2.5 px-4 bg-[#006837] hover:bg-[#004d26] disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
               >
-                {loading ? 'Autenticando...' : 'Entrar no Sistema'}
+                {loading ? 'Validando no SQLite...' : 'Entrar no Sistema'}
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              {/* Demo Fast Access Pill Selector */}
-              <div className="pt-4 border-t border-slate-100">
-                <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  Acesso Rápido de Demonstração (Clique para testar):
+              <div className="pt-3 text-center">
+                <span className="text-[11px] text-slate-500">
+                  Banco Local: <strong>SQLite (data/senar.sqlite)</strong>
                 </span>
-                <div className="space-y-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('emerson.lira@senar-ro.org.br', 'admin123')}
-                    className="w-full p-2 text-left rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-colors flex items-center justify-between text-xs cursor-pointer"
-                  >
-                    <div>
-                      <strong className="text-slate-900 block font-semibold">Dr. Emerson Lira (Superintendente)</strong>
-                      <span className="text-slate-500 text-[11px]">Permissão: Administrador Total (Edita Tudo + Usuários)</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#006837] text-[10px] font-bold">ADMIN</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('marcelo.carvalho@senar-ro.org.br', 'editor123')}
-                    className="w-full p-2 text-left rounded-lg border border-slate-200 hover:border-teal-500 hover:bg-teal-50/50 transition-colors flex items-center justify-between text-xs cursor-pointer"
-                  >
-                    <div>
-                      <strong className="text-slate-900 block font-semibold">Eng. Marcelo Carvalho (DETEC)</strong>
-                      <span className="text-slate-500 text-[11px]">Permissão: Editor de Conteúdo da Página</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[10px] font-bold">EDITOR</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('visualizador@senar-ro.org.br', 'viewer123')}
-                    className="w-full p-2 text-left rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-50 transition-colors flex items-center justify-between text-xs cursor-pointer"
-                  >
-                    <div>
-                      <strong className="text-slate-900 block font-semibold">Visitante / Auditor</strong>
-                      <span className="text-slate-500 text-[11px]">Permissão: Somente Visualização</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">VIEWER</span>
-                  </button>
-                </div>
               </div>
             </form>
           )}
@@ -305,7 +258,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
           {mode === 'FORGOT' && (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <p className="text-xs text-slate-600 leading-relaxed">
-                Insira o seu e-mail institucional cadastrado para enviarmos ou gerarmos o código de recuperação:
+                Insira o seu e-mail cadastrado no sistema para gerar o código de recuperação:
               </p>
 
               <div>
@@ -319,7 +272,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="emerson.lira@senar-ro.org.br"
+                    placeholder="seu.email@senar-ro.org.br"
                     className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006837]/30 focus:border-[#006837]"
                   />
                 </div>
@@ -401,7 +354,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                   disabled={loading}
                   className="flex-1 py-2.5 px-4 bg-[#006837] hover:bg-[#004d26] text-white rounded-xl text-sm font-semibold transition-colors shadow-sm cursor-pointer"
                 >
-                  {loading ? 'Salvando...' : 'Salvar Nova Senha'}
+                  {loading ? 'Salvando...' : 'Salvar no SQLite'}
                 </button>
               </div>
             </form>

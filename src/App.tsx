@@ -469,8 +469,23 @@ export default function App() {
         <ZebraSection id="fichas-tecnicas-objetivos" variant="gray">
           <FichasTecnicasObjetivosBSC
             usuarioAtivo={usuarioAtivo}
+            canEdit={canEdit}
             fichasProp={fichas}
-            onChangeFichas={setFichas}
+            onChangeFichas={(newFichas) => {
+              setFichas(newFichas);
+              // Auto-save no SQLite se tiver permissão
+              if (canEdit) {
+                const token = localStorage.getItem('senar_jwt_token');
+                fetch('/api/site/fichas', {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                  },
+                  body: JSON.stringify({ fichas: typeof newFichas === 'function' ? (newFichas as any)(fichas) : newFichas })
+                }).catch(() => {});
+              }
+            }}
           />
         </ZebraSection>
 

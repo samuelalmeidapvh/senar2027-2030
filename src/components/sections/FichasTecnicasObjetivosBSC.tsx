@@ -40,6 +40,7 @@ import {
 
 interface FichasTecnicasProps {
   usuarioAtivo: UsuarioAutenticado | null;
+  canEdit?: boolean;
   fichasProp?: FichaTecnicaObjetivo[];
   onChangeFichas?: React.Dispatch<React.SetStateAction<FichaTecnicaObjetivo[]>>;
 }
@@ -48,6 +49,7 @@ const STORAGE_KEY = 'senar_fichas_tecnicas_objetivos_v3';
 
 export const FichasTecnicasObjetivosBSC: React.FC<FichasTecnicasProps> = ({
   usuarioAtivo,
+  canEdit = true,
   fichasProp,
   onChangeFichas
 }) => {
