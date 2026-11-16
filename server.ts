@@ -14,6 +14,8 @@ import {
   getAllSiteContent,
   getSiteContentBlock,
   setSiteContentBlock,
+  getContentHistory,
+  restoreContentHistory,
   UserAccount
 } from './sqliteDb.ts';
 import { ESPECIFICACOES_TECNICAS } from './src/data/initialStrategicData.ts';
@@ -302,15 +304,16 @@ app.get('/api/site/content', (_req: Request, res: Response) => {
   });
 });
 
-// 2. Salvar Atualização Global ou Parcial
+// 2. Salvar Atualização Global ou Parcial (com suporte a histórico e identificação do usuário)
 app.put('/api/site/content', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
   const updates = req.body;
+  const user = (req as any).user;
   if (!updates || typeof updates !== 'object') {
     return res.status(400).json({ error: 'Payload inválido.' });
   }
 
   for (const [key, value] of Object.entries(updates)) {
-    setSiteContentBlock(key, value);
+    setSiteContentBlock(key, value, user?.email, `Edição de ${key}`);
   }
 
   res.json({
@@ -320,14 +323,42 @@ app.put('/api/site/content', requireAuth, requirePermission('EDIT_PAGE'), (req: 
   });
 });
 
-// 3. Atualizar Fichas Técnicas Especificamente (auto-save da página)
+// 3. Atualizar Fichas Técnicas Especificamente (auto-save com histórico)
 app.put('/api/site/fichas', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
   const { fichas } = req.body;
+  const user = (req as any).user;
   if (!Array.isArray(fichas)) {
     return res.status(400).json({ error: 'Fichas deve ser uma lista.' });
   }
-  setSiteContentBlock('fichasTecnicas', fichas);
-  res.json({ status: 'success', message: 'Fichas técnicas gravadas no SQLite.' });
+  setSiteContentBlock('fichasTecnicas', fichas, user?.email, 'Auto-save de Fichas Técnicas BSC');
+  res.json({ status: 'success', message: 'Fichas técnicas gravadas no SQLite com histórico.' });
+});
+
+// 4. Histórico de Alterações do Conteúdo
+app.get('/api/site/history', requireAuth, (_req: Request, res: Response) => {
+  const history = getContentHistory(40);
+  res.json({ status: 'success', history });
+});
+
+// 5. Restaurar/Desfazer Alteração Específica do Histórico
+app.post('/api/site/history/:id/restore', requireAuth, requirePermission('EDIT_PAGE'), (req: Request, res: Response) => {
+  const historyId = parseInt(req.params.id);
+  const user = (req as any).user;
+  if (isNaN(historyId)) {
+    return res.status(400).json({ error: 'ID de histórico inválido.' });
+  }
+
+  try {
+    const result = restoreContentHistory(historyId, user?.email);
+    res.json({ 
+      status: 'success', 
+      message: `Versão anterior restaurada com sucesso!`,
+      key: result.key,
+      content: getAllSiteContent()
+    });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Falha ao restaurar versão.' });
+  }
 });
 
 // ======================== ROTAS DE COMPATIBILIDADE ========================

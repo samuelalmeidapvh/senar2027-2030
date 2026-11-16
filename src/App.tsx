@@ -549,7 +549,7 @@ export default function App() {
         }}
       />
 
-      {/* Admin Panel Modal: Gestão CMS & Usuários */}
+      {/* Admin Panel Modal: Gestão CMS & Usuários & Histórico */}
       {usuarioAtivo && (
         <AdminPanelModal
           isOpen={isAdminPanelOpen}
@@ -558,6 +558,21 @@ export default function App() {
           canEdit={canEdit}
           siteContent={siteContent}
           onSaveContent={handleSaveGlobalContent}
+          onContentRestored={() => {
+            // Recarrega o conteúdo restaurado do SQLite
+            fetch('/api/site/content')
+              .then(res => res.json())
+              .then(data => {
+                if (data.content) {
+                  setSiteContent(data.content);
+                  if (data.content.objetivos) setObjetivos(data.content.objetivos);
+                  if (data.content.kpis) setKpis(data.content.kpis);
+                  if (data.content.planosAcao) setPlanos(data.content.planosAcao);
+                  if (data.content.fichasTecnicas) setFichas(data.content.fichasTecnicas);
+                  if (data.content.resultadosSociedade) setResultadosSociedade(data.content.resultadosSociedade);
+                }
+              });
+          }}
           onLogout={() => {
             localStorage.removeItem('senar_jwt_token');
             setUsuarioAtivo(null);

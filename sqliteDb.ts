@@ -61,6 +61,16 @@ sqlite.exec(`
     updated_at TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS content_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
+    previous_data TEXT NOT NULL,
+    new_data TEXT NOT NULL,
+    user_email TEXT,
+    description TEXT,
+    created_at TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_email TEXT,
@@ -247,12 +257,73 @@ export function getSiteContentBlock<T = any>(key: string): T | null {
   return JSON.parse(row.data);
 }
 
-export function setSiteContentBlock(key: string, data: any): void {
+export function setSiteContentBlock(key: string, data: any, userEmail?: string, description?: string): void {
+  const previous = getSiteContentBlock(key);
+  const prevString = previous ? JSON.stringify(previous) : '';
+  const newString = JSON.stringify(data);
+
+  // Só registra histórico se houver alteração real
+  if (prevString && prevString !== newString) {
+    sqlite.prepare(`
+      INSERT INTO content_history (key, previous_data, new_data, user_email, description, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      key, 
+      prevString, 
+      newString, 
+      userEmail || 'sistema@senar-ro.org.br', 
+      description || `Alteração em ${key}`,
+      new Date().toISOString()
+    );
+  }
+
   sqlite.prepare(`
     INSERT INTO site_content (key, data, updated_at) 
     VALUES (?, ?, ?)
     ON CONFLICT(key) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
-  `).run(key, JSON.stringify(data), new Date().toISOString());
+  `).run(key, newString, new Date().toISOString());
+}
+
+export interface ContentHistoryEntry {
+  id: number;
+  key: string;
+  userEmail: string;
+  description: string;
+  createdAt: string;
+  previousData: any;
+  newData: any;
+}
+
+export function getContentHistory(limit = 30): ContentHistoryEntry[] {
+  const rows = sqlite.prepare(`
+    SELECT id, key, previous_data, new_data, user_email, description, created_at
+    FROM content_history
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(limit) as any[];
+
+  return rows.map(r => ({
+    id: r.id,
+    key: r.key,
+    userEmail: r.user_email,
+    description: r.description,
+    createdAt: r.created_at,
+    previousData: JSON.parse(r.previous_data),
+    newData: JSON.parse(r.new_data)
+  }));
+}
+
+export function restoreContentHistory(historyId: number, userEmail?: string): { success: boolean; key: string } {
+  const entry = sqlite.prepare(`
+    SELECT key, previous_data FROM content_history WHERE id = ?
+  `).get(historyId) as any;
+
+  if (!entry) throw new Error('Entrada de histórico não encontrada.');
+
+  const previousParsed = JSON.parse(entry.previous_data);
+  setSiteContentBlock(entry.key, previousParsed, userEmail, `Restauração da versão #${historyId}`);
+
+  return { success: true, key: entry.key };
 }
 
 export function getAllSiteContent() {
