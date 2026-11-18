@@ -195,15 +195,54 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
 
   const isClientesObjective = effectivePerspectiva === 'CLIENTES';
 
-  const clientesFichas = fichas.filter(f => f.perspectivaBsc === 'CLIENTES');
-  const useFichasMode = isClientesObjective && clientesFichas.length > 0;
+  // Identifica as Fichas Técnicas oficiais correspondentes a este objetivo
+  const relevantFichas: FichaTecnicaObjetivo[] = (() => {
+    if (objetivo.codigo === 'OE-01' || objetivo.id === 'obj-1') {
+      return fichas.filter(f => f.perspectivaBsc === 'CLIENTES');
+    }
+    if (objetivo.codigo === 'OE-03' || objetivo.id === 'obj-3') {
+      const fGestao = fichas.find(f => f.id === 'ficha-oe-02-gestao');
+      return fGestao ? [fGestao] : [];
+    }
+    if (objetivo.codigo === 'OE-04' || objetivo.id === 'obj-4') {
+      const fTi = fichas.find(f => f.id === 'ficha-oe-08-ti-dados');
+      return fTi ? [fTi] : [];
+    }
+    if (objetivo.codigo === 'OE-05' || objetivo.id === 'obj-5') {
+      const fAci = fichas.find(f => f.id === 'ficha-oe-04-aci');
+      return fAci ? [fAci] : [];
+    }
+    // Caso padrão para outros nós
+    const byCodigo = fichas.filter(f => f.codigoObjetivo === objetivo.codigo.replace(/\D/g, ''));
+    if (byCodigo.length > 0) return byCodigo;
+    return fichas.filter(f => f.perspectivaBsc === effectivePerspectiva);
+  })();
 
-  const visibleClientesFichas =
-    selectedFichaFilter === 'ALL'
-      ? clientesFichas
-      : clientesFichas.filter(f => f.id === selectedFichaFilter);
+  const useFichasMode = relevantFichas.length > 0;
 
-  const totalClientesIndicadores = clientesFichas.reduce(
+  // Se a ficha relevante tiver temas (como OE-03 / ficha-oe-02-gestao), permite filtrar por temas
+  const temasDisponiveis = relevantFichas.flatMap(f => f.temas || []);
+
+  const visibleFichas = (() => {
+    if (selectedFichaFilter === 'ALL') return relevantFichas;
+    
+    // Verifica se o filtro é um tema
+    const selectedTema = temasDisponiveis.find(t => t.id === selectedFichaFilter);
+    if (selectedTema) {
+      return relevantFichas.map(f => {
+        if (!f.temas || f.temas.length === 0) return f;
+        const matchingTema = f.temas.find(t => t.id === selectedFichaFilter);
+        return {
+          ...f,
+          indicadoresMetas: matchingTema ? matchingTema.indicadoresMetas : []
+        };
+      });
+    }
+
+    return relevantFichas.filter(f => f.id === selectedFichaFilter);
+  })();
+
+  const totalIndicadoresFicha = relevantFichas.reduce(
     (acc, f) => acc + f.indicadoresMetas.length,
     0
   );
@@ -215,7 +254,7 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
   // Calcula o Progresso BSC dinamicamente com base na evolução das metas dos indicadores vinculados
   const progressoBsc: number = (() => {
     if (useFichasMode) {
-      const todosIndicadores = clientesFichas.flatMap(f => f.indicadoresMetas);
+      const todosIndicadores = relevantFichas.flatMap(f => f.indicadoresMetas);
       if (todosIndicadores.length === 0) return objetivo.progressoPercentual;
 
       const soma = todosIndicadores.reduce((acc, ind) => {
@@ -282,9 +321,9 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
     const defaultFichaId =
       selectedFichaFilter !== 'ALL'
         ? selectedFichaFilter
-        : clientesFichas[0]?.id || '';
+        : relevantFichas[0]?.id || '';
     const nextNum = useFichasMode
-      ? totalClientesIndicadores + 1
+      ? totalIndicadoresFicha + 1
       : kpisAssociados.length + 1;
 
     setEditingKey(null);
@@ -371,7 +410,7 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
     if (!newDraft || !newDraft.nome.trim()) return;
 
     if (useFichasMode && onChangeFichas) {
-      const targetId = newDraft.targetFichaId || clientesFichas[0]?.id;
+      const targetId = newDraft.targetFichaId || relevantFichas[0]?.id;
       if (!targetId) return;
 
       const newFichaInd: IndicadorMetaFicha = {
@@ -547,8 +586,8 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
               )}
             </div>
 
-            {/* Ficha Filter Bar for Perspectiva Clientes */}
-            {useFichasMode && (
+            {/* Ficha / Tema Filter Bar */}
+            {useFichasMode && (relevantFichas.length > 1 || temasDisponiveis.length > 0) && (
               <div className="flex flex-wrap items-center gap-1.5 mb-3">
                 <button
                   type="button"
@@ -559,22 +598,37 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-sky-50'
                   }`}
                 >
-                  Todas as Fichas ({totalClientesIndicadores})
+                  {temasDisponiveis.length > 0 ? 'Todos os Temas' : 'Todas as Fichas'} ({totalIndicadoresFicha})
                 </button>
-                {clientesFichas.map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setSelectedFichaFilter(f.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
-                      selectedFichaFilter === f.id
-                        ? 'bg-sky-600 text-white border-sky-600'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-sky-50'
-                    }`}
-                  >
-                    {f.codigoObjetivo} · {f.nomeObjetivo} ({f.indicadoresMetas.length})
-                  </button>
-                ))}
+                {temasDisponiveis.length > 0
+                  ? temasDisponiveis.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setSelectedFichaFilter(t.id)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                          selectedFichaFilter === t.id
+                            ? 'bg-sky-600 text-white border-sky-600'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-sky-50'
+                        }`}
+                      >
+                        Tema {t.codigoTema} · {t.nomeTema} ({t.indicadoresMetas.length})
+                      </button>
+                    ))
+                  : relevantFichas.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setSelectedFichaFilter(f.id)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                          selectedFichaFilter === f.id
+                            ? 'bg-sky-600 text-white border-sky-600'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-sky-50'
+                        }`}
+                      >
+                        {f.codigoObjetivo} · {f.nomeObjetivo} ({f.indicadoresMetas.length})
+                      </button>
+                    ))}
               </div>
             )}
 
@@ -586,7 +640,7 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
               >
                 <div className="flex items-center justify-between gap-2 pb-2 border-b border-emerald-200/80">
                   <span className="font-bold text-emerald-950 uppercase tracking-wide text-[11px]">
-                    Inserir Novo Indicador ({useFichasMode ? 'Perspectiva Clientes' : objetivo.codigo})
+                    Inserir Novo Indicador ({useFichasMode ? `Ficha Técnica ${objetivo.codigo}` : objetivo.codigo})
                   </span>
                   <button
                     type="button"
@@ -763,10 +817,10 @@ export const ObjetivoPopoverModal: React.FC<ObjetivoPopoverModalProps> = ({
               </form>
             )}
 
-            {/* RENDER MODE 1: Official Ficha Técnica Indicators & Annual Targets (2027-2030) for Perspectiva Clientes */}
+            {/* RENDER MODE 1: Official Ficha Técnica Indicators & Annual Targets (2027-2030) */}
             {useFichasMode ? (
               <div className="space-y-4">
-                {visibleClientesFichas.map((ficha) =>
+                {visibleFichas.map((ficha) =>
                   ficha.indicadoresMetas.map((ind) => {
                     const rowKey = `${ficha.id}:${ind.id}`;
                     const isEditingThis = editingKey === rowKey;
